@@ -13,6 +13,8 @@ Keeper manages the phone's existing internet-sharing hotspot: explicit device ac
 - `TetheredDeviceDiscovery`: optional shell-only tethering callback adapter; DHCP metadata discovery/parsing/failure handling belongs here. Use the backend worker executor for its mutable state.
 - `DeviceIdentityJson`: Binder snapshot encoding/decoding, separate from presentation and discovery.
 - `DeviceIdentity`: pure-Java untrusted metadata normalisation and display-name precedence. It must remain independent of Android UI and privileged APIs.
+- `HotspotSettingsSheet`: isolated credential editor; do not route secret responses into routine UI snapshots or diagnostics.
+- `HotspotProfileController` / `HotspotProfilePolicy`: narrow privileged name/password operations and pure input validation. Preserve security mode, bands and access rules via copy builders; keep fixed/redacted error messages.
 - `SessionRules`: pure validation and timer arithmetic. Do not duplicate these rules in widgets.
 - `SessionService`: session lifecycle notifications and optional external-start monitoring. Active-session notification monitoring is allowed without changing the external-detection preference.
 
@@ -23,7 +25,8 @@ Keeper manages the phone's existing internet-sharing hotspot: explicit device ac
 3. Selected-only mode requires an explicit supported allowlist. Never silently widen access after an error or removal of a saved device. Restore only device settings still owned by Keeper; preserve unrelated SSID/password changes.
 4. User-saved friendly names take precedence over advertised hostnames, then fall back to a MAC suffix. Treat all reported names/IPs as untrusted display hints, never authentication, automatic enrolment, allowlist matching or proof of presence. Association callbacks determine connected-device presence; DHCP leases can be stale.
 5. Discovery is optional. Missing names, unsupported APIs and permission failures must degrade to existing MAC display, not disable hotspot control or timer enforcement. No NetBIOS/mDNS probes, reverse-DNS lookups or new network permissions without explicit feature scope.
-6. Session-start confirmation alerts once, review acknowledges it, routine updates stay silent. Confirm cutoff only after observed off. No notification action buttons unless requested. Do not repeatedly repost dismissed unchanged notifications. Never claim that Android guarantees sound/vibration/heads-up under user settings or DND.
+6. Name/password changes must preserve unrelated configuration and distinguish next-start settings from the active network. Protect against stale edits. Never persist or log credentials, include them in routine snapshots, or silently change security mode. Pending credential changes must not make supposed live access-rule edits silently deferred by Android.
+7. Session-start confirmation alerts once, review acknowledges it, routine updates stay silent. Confirm cutoff only after observed off. No notification action buttons unless requested. Do not repeatedly repost dismissed unchanged notifications. Never claim that Android guarantees sound/vibration/heads-up under user settings or DND.
 
 ## Privilege, data and compatibility
 

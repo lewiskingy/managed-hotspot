@@ -1,6 +1,6 @@
 # Hotspot Keeper
 
-Keeper manages an Android phone's normal internet-sharing hotspot with device allowlists, total-session time limits and session alerts. It uses the existing hotspot name/password and a Shizuku shell helper. **Current version: 0.3.1.** No root, analytics, cloud service or app Internet permission.
+Keeper manages an Android phone's normal internet-sharing hotspot with device allowlists, total-session time limits and session alerts. It uses the existing hotspot name/password and a Shizuku shell helper. **Current version: 0.3.2.** No root, analytics, cloud service or app Internet permission.
 
 ## Setup and everyday use
 
@@ -9,6 +9,8 @@ Keeper manages an Android phone's normal internet-sharing hotspot with device al
 3. Choose device access and a total time limit in the Session rules sheet. **Save defaults** while off does not start the hotspot or require notification permission. **Start hotspot** reviews/applies rules before requesting startup; **Apply changes** edits a running session. Cancel leaves drafts unsaved.
 4. Allow notifications for session alerts. Optionally enable **Detect hotspots started elsewhere** to automatically apply saved rules to Android-initiated sessions. Starting inside Keeper does not enable this option. External starts can briefly permit password access before the allowlist is applied.
 5. Remember connected devices in Settings → Known devices. Tap a device to rename/remove it or inspect its reported name, IPs and Wi-Fi address. Removing a saved device does not change live session rules or silently enable unrestricted access.
+
+On the main page, the **Hotspot** section has two entries: **Session rules** (device access and total time together) and **Hotspot settings** (name/password and an Android settings shortcut).
 
 The home screen separates applied session rules from next-session defaults, shows the timer and friendly connected-device names, and provides one start/stop action. Settings holds connection management; Setup & help and Troubleshooting contain explanations and diagnostics.
 
@@ -35,6 +37,14 @@ Wi-Fi association events remain authoritative for Keeper's connected list; DHCP 
 
 Android's [TetheredClient source](https://android.googlesource.com/platform/packages/modules/Connectivity/+/refs/heads/main/Tethering/common/TetheringLib/src/android/net/TetheredClient.java) describes the optional advertised hostname. Actual availability still needs Pixel verification; a successful fixture test is not proof that the phone exposes the API.
 
+## Hotspot name and password
+
+Open **Hotspot → Hotspot settings** on the dashboard. Keeper reads the current saved SSID/security and password through a dedicated privileged request. The password is masked unless revealed. Saving changes only the name/password on a copy of the current Android configuration, preserving the security mode, bands, allowlists and other settings. Open/enhanced-open/unknown security modes keep password editing disabled; use full Android settings to change security mode. Unchanged existing passwords are preserved even if they use unusual text; new passwords use printable ASCII and the mode's length limits. SSIDs must contain valid Unicode within Android's 32-byte UTF-8 limit.
+
+When the hotspot is on, saves take effect **at the next start**, without resetting or stopping the current timed session. The dashboard distinguishes the active name from the configured next-start name. While credentials are pending, device-access changes require a restart so Android cannot silently defer a supposed live restriction; timer-only edits with unchanged device rules remain supported. Full Android hotspot settings is available directly from the modal, with fallbacks for OEMs.
+
+Credentials are not included in normal snapshots, diagnostics, preferences, recovery files or logs. The editor uses a secure window, disables view-state/autofill saving and clears fields and transient helper edit state when closed. Concurrent SSID/password/security changes invalidate the editor revision rather than overwriting changes from Android Settings. Saving is confirmed by read-back, and platform errors use fixed messages that do not echo credentials.
+
 ## Notifications and background operation
 
 Externally detected sessions raise one prominent vibrating confirmation alert while saved rules apply immediately. Opening Keeper acknowledges it; later status updates are silent. Actual sound, heads-up and vibration depend on Android notification preferences and Do Not Disturb. Cutoff is announced once Android reports the hotspot off; manual/idle shutdown stays quiet. Tap notifications to open Keeper; there are no extra action buttons.
@@ -56,6 +66,8 @@ Read [AGENTS.md](AGENTS.md) for invariants, component boundaries, privacy, acces
 | `TetheredDeviceDiscovery` | Optional reflective tethering callback, metadata parsing and failure isolation |
 | `DeviceIdentity` | Pure-Java display policy, normalisation and bounded name sanitisation |
 | `DeviceIdentityJson` | Binder snapshot codec, independent of UI and privileged discovery |
+| `HotspotSettingsSheet` | Isolated name/password editor and secret lifecycle |
+| `HotspotProfileController`, `HotspotProfilePolicy` | Privileged configuration adapter and pure credential validation |
 | `SessionService` | Session notifications, optional detection and active-session monitoring |
 | `SessionRules`, `SessionPolicy` | Pure validation and timer policy |
 
@@ -69,7 +81,7 @@ Requires **JDK 17, SDK platform 36 and Build Tools 36.0.0**:
 scripts/build.sh /absolute/path/to/android-sdk
 ```
 
-Output: `dist/HotspotKeeper-debug.apk`. The SDK-only build downloads checksum-pinned Shizuku dependencies, compiles resources/Java, signs/verifies the APK and runs policy, timer/device-rule, shell-identity, metadata-display and discovery-callback fixture tests. Gradle is also supported; no wrapper is bundled.
+Output: `dist/HotspotKeeper-debug.apk`. The SDK-only build downloads checksum-pinned Shizuku dependencies, compiles resources/Java, signs/verifies the APK and runs policy, timer/device-rule, shell-identity, metadata-display, discovery-callback and profile policy/controller fixture tests. Gradle is also supported; no wrapper is bundled.
 
 GitHub Actions builds APK artifacts. `DEBUG_KEYSTORE_BASE64` preserves CI signing identity when configured; otherwise CI generates a key that may not update existing installations. Never commit signing keys or downloaded/generated artifacts. App version/code must agree in Gradle, the SDK script and UI; helper changes also require a Shizuku service version bump.
 

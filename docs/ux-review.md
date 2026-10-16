@@ -35,3 +35,13 @@ No runtime screenshots are included: the build environment has no emulator or co
 - Remembering a device must not copy network-controlled names into permanent manual labels. Clearing a local name should expose the live reported name again.
 - Verify updates after DHCP changes/disconnection and a new session. Old leases must not create connected clients. Discovery unavailable/denied must not block timers or allowlists.
 - Automated model and reflective callback fixtures cover precedence, sanitisation, IP deduplication, Wi-Fi filtering, association filtering, partial field failures, session clearing and registration denial. Real Pixel API access remains unverified.
+
+## Hotspot settings (0.3.2)
+
+- Verify the dashboard contains one consolidated Session rules entry with device/time summaries, then Hotspot settings. Both open separate editors.
+- Read the saved name/password; test reveal, cancel, invalid UTF-8/long SSID, short password, special ASCII symbols and spaces. No password may appear in diagnostics or retained preferences. Screenshots of the credential modal should be blocked.
+- Save while off and start: verify the new SSID/password, existing security type, band and access rules.
+- Save while running: current clients/timer should remain intact; new credentials apply after stop/start. Verify the dashboard labels next-start settings, live device-access changes are rejected until restart and timer-only edits do not reset elapsed time.
+- Change credentials/security externally while the modal is open; old Save must conflict. Test platform rejection and permission loss without secret-bearing errors.
+- Open the full Android hotspot page; verify the fallback path on unsupported OEMs. Open/OWE modes must allow name editing without silently enabling passwords or changing security.
+- Tests use isolated reflective platform fixtures; actual Pixel save/restart behaviour remains unverified. Upgrade with hotspot off due to the helper version bump.
