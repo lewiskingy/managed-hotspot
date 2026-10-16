@@ -1,0 +1,4 @@
+<resources>
+ <!-- Leave empty until a real URL and distribution policy review are complete. -->
+ <string name="support_url" translatable="false"></string>
+</resources>

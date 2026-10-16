@@ -45,3 +45,14 @@ No runtime screenshots are included: the build environment has no emulator or co
 - Change credentials/security externally while the modal is open; old Save must conflict. Test platform rejection and permission loss without secret-bearing errors.
 - Open the full Android hotspot page; verify the fallback path on unsupported OEMs. Open/OWE modes must allow name editing without silently enabling passwords or changing security.
 - Tests use isolated reflective platform fixtures; actual Pixel save/restart behaviour remains unverified. Upgrade with hotspot off due to the helper version bump.
+
+## Play preparation / guided setup (0.4.0)
+
+- Fresh install opens setup; existing known devices/defaults survive without forced setup.
+- Follow all eight steps on a Pixel, with large text, TalkBack, rotation and gesture navigation.
+- Test missing Shizuku, no browser, missing settings activities, denied authorisation/notifications and a stopped Shizuku after reboot. Continue from authorisation requires a connected helper.
+- Pair through Shizuku notification; verify returning from Settings refreshes connection state. Never require permanent Wi-Fi after startup.
+- Back/cancel/setup later never start hotspot or enable detection. Reopen setup from Settings.
+- Export/import names/rules through local and cloud document providers; reject invalid/oversized backups; cancel replacement; verify running rules and passwords unchanged.
+- Verify policy text can be read offline. Optional support is absent with empty URL. If enabled later, verify the external-site confirmation and distribution-policy eligibility.
+- Verify production AAB/signature separately from debug APK, and test uninstall/reinstall backup migration before public distribution.
