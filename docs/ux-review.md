@@ -27,3 +27,11 @@ Device review required (not completed in this environment):
 10. Follow Setup & help on Pixel; verify Developer options, Shizuku and Android settings links, reboot reconnection and notification guidance.
 
 No runtime screenshots are included: the build environment has no emulator or connected phone. Do not substitute the design concepts for evidence of rendered UI.
+
+## Device discovery (0.3.1)
+
+- Check a client supplying a DHCP hostname and one supplying none. Manual friendly names must always win. Old MAC-generated placeholder names may yield to reported names.
+- Device details must distinguish editable local name, reported name, numeric IPs and MAC; missing metadata must say unavailable/not provided.
+- Remembering a device must not copy network-controlled names into permanent manual labels. Clearing a local name should expose the live reported name again.
+- Verify updates after DHCP changes/disconnection and a new session. Old leases must not create connected clients. Discovery unavailable/denied must not block timers or allowlists.
+- Automated model and reflective callback fixtures cover precedence, sanitisation, IP deduplication, Wi-Fi filtering, association filtering, partial field failures, session clearing and registration denial. Real Pixel API access remains unverified.

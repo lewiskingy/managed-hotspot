@@ -337,10 +337,11 @@ public final class MainActivity extends Activity {
   }
 
   private String deviceName(String mac) {
-    String n = known().optString(mac.toLowerCase(Locale.ROOT), "");
-    return n.trim().isEmpty()
-        ? "Unknown device · …" + mac.substring(Math.max(0, mac.length() - 5))
-        : n;
+    return deviceIdentity(mac).displayName(known().optString(mac.toLowerCase(Locale.ROOT), ""));
+  }
+
+  private DeviceIdentity deviceIdentity(String mac) {
+    return DeviceIdentityJson.find(latest, mac);
   }
 
   private void updateHome() {
@@ -410,7 +411,8 @@ public final class MainActivity extends Activity {
     limitValue.setText(m == 0 ? "No time limit" : m + " minutes total");
     connectedSection.setVisibility(on ? View.VISIBLE : View.GONE);
     JSONArray clients = latest.optJSONArray("clients");
-    String clientsKey = on + ":" + clients + ":" + known();
+    String clientsKey =
+        on + ":" + clients + ":" + known() + ":" + latest.optJSONArray("clientDetails");
     if (clientsKey.equals(renderedClients)) return;
     renderedClients = clientsKey;
     connectedCard.removeAllViews();
@@ -421,7 +423,15 @@ public final class MainActivity extends Activity {
       for (int i = 0; i < clients.length(); i++) {
         String mac = clients.optString(i);
         if (i > 0) divider(connectedCard);
-        row(connectedCard, "phone", deviceName(mac), "● Connected", () -> editDevice(mac));
+        row(
+            connectedCard,
+            "phone",
+            deviceName(mac),
+            "● Connected"
+                + (deviceIdentity(mac).addresses.isEmpty()
+                    ? ""
+                    : " · " + String.join(", ", deviceIdentity(mac).addresses)),
+            () -> editDevice(mac));
       }
   }
 
@@ -776,7 +786,7 @@ public final class MainActivity extends Activity {
     divider(support);
     row(support, "pulse", "Diagnostics", "Technical details", this::diagnostics);
     space(root, 18);
-    TextView version = text(root, "Keeper · version 0.3.0", 12, MUTED, false);
+    TextView version = text(root, "Keeper · version 0.3.1", 12, MUTED, false);
     version.setGravity(Gravity.CENTER);
   }
 
@@ -1061,8 +1071,7 @@ public final class MainActivity extends Activity {
       JSONObject names = known();
       for (int i = 0; i < clients.length(); i++) {
         String mac = clients.getString(i).toLowerCase(Locale.ROOT);
-        if (!names.has(mac))
-          names.put(mac, "Device …" + mac.substring(Math.max(0, mac.length() - 5)));
+        if (!names.has(mac)) names.put(mac, "");
       }
       prefs(this).edit().putString("known", names.toString()).apply();
       show("devices");
@@ -1077,7 +1086,7 @@ public final class MainActivity extends Activity {
     EditText name = new EditText(this), address = new EditText(this);
     name.setTextColor(WHITE);
     name.setHintTextColor(MUTED);
-    name.setHint("Friendly name");
+    name.setHint("Your friendly name (optional)");
     name.setSingleLine();
     address.setTextColor(WHITE);
     address.setHintTextColor(MUTED);
@@ -1086,7 +1095,25 @@ public final class MainActivity extends Activity {
     form.addView(name);
     form.addView(address);
     if (existing != null) {
-      name.setText(known().optString(existing));
+      DeviceIdentity identity = deviceIdentity(existing);
+      String savedName = known().optString(existing);
+      name.setText(savedName.equalsIgnoreCase(existing) ? "" : savedName);
+      text(
+          form,
+          "Reported name: " + (identity.hostname.isEmpty() ? "Not provided" : identity.hostname),
+          14,
+          MUTED,
+          false);
+      text(
+          form,
+          "IP addresses: "
+              + (identity.addresses.isEmpty()
+                  ? "Unavailable"
+                  : String.join(", ", identity.addresses)),
+          14,
+          MUTED,
+          false);
+      text(form, "Reported details are best-effort and do not determine access.", 12, MUTED, false);
       address.setText(existing);
       address.setEnabled(false);
     }
@@ -1139,7 +1166,7 @@ public final class MainActivity extends Activity {
                         new SessionRules(0, true, Collections.singletonList(mac));
                         JSONObject names = known();
                         String label = name.getText().toString().trim();
-                        names.put(mac, label.isEmpty() ? mac : label);
+                        names.put(mac, DeviceIdentity.cleanName(label));
                         prefs(this).edit().putString("known", names.toString()).apply();
                         dialog.dismiss();
                         show(page);

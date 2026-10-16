@@ -20,6 +20,7 @@ public final class HotspotBackend extends Binder {
   private PowerManager.WakeLock sessionWake;
   private long stopRequestedAt;
   private Object callback, capability, original;
+  private final TetheredDeviceDiscovery deviceDiscovery = new TetheredDeviceDiscovery();
   private List<String> clients = new ArrayList<>(), appliedAllowed = new ArrayList<>();
   private boolean managed = false,
       restricted = false,
@@ -90,6 +91,7 @@ public final class HotspotBackend extends Binder {
       wifi.getClass()
           .getMethod("registerSoftApCallback", Executor.class, callbackClass)
           .invoke(wifi, worker, callback);
+      deviceDiscovery.start(tether, worker);
       recoverSavedRules();
     } catch (Throwable e) {
       initError = message(e);
@@ -376,12 +378,14 @@ public final class HotspotBackend extends Binder {
 
   private void observeSession(int state) {
     if (state == 11) {
+      deviceDiscovery.clear();
       sessionStarted = 0;
       startObserved = false;
       observedOff = true;
     } else if (state == 12) {
       observedOff = true;
     } else if (state == 13 && sessionStarted == 0) {
+      deviceDiscovery.clear();
       sessionStarted = SystemClock.elapsedRealtime();
       if (!managed) reason = "";
       startObserved = observedOff;
@@ -458,6 +462,8 @@ public final class HotspotBackend extends Binder {
         .put("allowSupported", canAllow())
         .put("clientsReady", callbackReady)
         .put("clients", new JSONArray(clients))
+        .put("clientDetails", deviceDiscovery.snapshot(s == 13 ? clients : Collections.emptyList()))
+        .put("deviceDiscovery", deviceDiscovery.status())
         .put("sessionStarted", sessionStarted)
         .put("startObserved", startObserved)
         .put("timeLimitMs", timeLimitMs)
