@@ -4,15 +4,13 @@ import uk.me.theflat.hotspot.SessionRules;
 public class SessionRulesTest {
   public static void main(String[] args) {
     SessionRules r =
-        new SessionRules(30, 500, true, Arrays.asList("AA:BB:CC:DD:EE:FF", "aa:bb:cc:dd:ee:ff"));
+        new SessionRules(30, true, Arrays.asList("AA:BB:CC:DD:EE:FF", "aa:bb:cc:dd:ee:ff"));
     check(r.durationMs == 1800000);
-    check(r.capBytes == 524288000);
     check(r.allowed.size() == 1);
     check(r.allowed.get(0).equals("aa:bb:cc:dd:ee:ff"));
-    rejected(() -> new SessionRules(0, 0, true, Collections.emptyList()));
-    rejected(() -> new SessionRules(0, 0, true, Arrays.asList("invalid")));
-    rejected(() -> new SessionRules(-1, 0, false, Collections.emptyList()));
-    rejected(() -> new SessionRules(0, 1048577, false, Collections.emptyList()));
+    rejected(() -> new SessionRules(0, true, Collections.emptyList()));
+    rejected(() -> new SessionRules(0, true, Arrays.asList("invalid")));
+    rejected(() -> new SessionRules(-1, false, Collections.emptyList()));
     check(!SessionRules.expired(0, 500));
     check(!SessionRules.expired(100, 99));
     check(SessionRules.expired(100, 100));
@@ -29,6 +27,10 @@ public class SessionRulesTest {
     for (int stop : SessionRules.TIMER_MINUTES) check(SessionRules.snapMinutes(stop) == stop);
     check(SessionRules.snapMinutes(8) == 10);
     check(SessionRules.snapMinutes(76) == 90);
+    check(SessionRules.nextMinutes(10, true) == 20);
+    check(SessionRules.nextMinutes(90, false) == 60);
+    check(SessionRules.nextMinutes(0, false) == 0);
+    check(SessionRules.nextMinutes(120, true) == 120);
     System.out.println("Session rules checks passed");
   }
 
