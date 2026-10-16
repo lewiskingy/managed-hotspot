@@ -20,6 +20,8 @@ public final class HotspotBackend extends Binder {
   private PowerManager.WakeLock sessionWake;
   private long stopRequestedAt;
   private Object callback, capability, original;
+  private final HotspotProfileController profileController = new HotspotProfileController();
+  private String activeSsid = "";
   private final TetheredDeviceDiscovery deviceDiscovery = new TetheredDeviceDiscovery();
   private List<String> clients = new ArrayList<>(), appliedAllowed = new ArrayList<>();
   private boolean managed = false,
@@ -264,6 +266,14 @@ public final class HotspotBackend extends Binder {
     SessionRules r = parse(input);
     if (r.restricted && !canAllow())
       throw new IllegalStateException("Pixel has not reported support for device allowlists");
+    boolean credentialsPending =
+        HotspotProfilePolicy.deferLiveAccess(
+            s == 13 && profileController.pendingRestart(),
+            managed,
+            restricted,
+            appliedAllowed,
+            r.restricted,
+            r.allowed);
     boolean newSession = !managed;
     Object currentConfig = configuration();
     Object saved = original;
@@ -273,7 +283,7 @@ public final class HotspotBackend extends Binder {
     try {
       updateWake(r.durationMs > 0);
       storeRecovery(r);
-      setConfiguration(withRules(currentConfig, r.restricted, r.allowed));
+      if (!credentialsPending) setConfiguration(withRules(currentConfig, r.restricted, r.allowed));
     } catch (Exception e) {
       original = saved;
       updateWake(managed && deadline > 0);
@@ -378,6 +388,8 @@ public final class HotspotBackend extends Binder {
 
   private void observeSession(int state) {
     if (state == 11) {
+      activeSsid = "";
+      profileController.stopped();
       deviceDiscovery.clear();
       sessionStarted = 0;
       startObserved = false;
@@ -385,6 +397,11 @@ public final class HotspotBackend extends Binder {
     } else if (state == 12) {
       observedOff = true;
     } else if (state == 13 && sessionStarted == 0) {
+      try {
+        String ssid = (String) call(configuration(), "getSsid");
+        activeSsid = ssid == null ? "" : ssid;
+      } catch (Exception ignored) {
+      }
       deviceDiscovery.clear();
       sessionStarted = SystemClock.elapsedRealtime();
       if (!managed) reason = "";
@@ -468,6 +485,7 @@ public final class HotspotBackend extends Binder {
         .put("startObserved", startObserved)
         .put("timeLimitMs", timeLimitMs)
         .put("deadline", deadline)
+        .put("hotspotSettingsPending", profileController.pendingRestart())
         .put("generation", generation)
         .put("stopping", stopping)
         .put("awaitingStart", awaitingStart)
@@ -475,7 +493,9 @@ public final class HotspotBackend extends Binder {
         .put("reason", reason)
         .put("error", error.isEmpty() ? startError : error);
     Object conf = configuration();
-    o.put("ssid", call(conf, "getSsid"));
+    String configuredSsid = (String) call(conf, "getSsid");
+    o.put("configuredSsid", configuredSsid);
+    o.put("ssid", s == 13 && !activeSsid.isEmpty() ? activeSsid : configuredSsid);
     return o;
   }
 
@@ -519,13 +539,36 @@ public final class HotspotBackend extends Binder {
                   () -> {
                     try {
                       JSONObject p = new JSONObject(input == null ? "{}" : input);
+                      if (command == 5)
+                        return profileController.read(wifi).put("ok", true).toString();
+                      if (command == 6) {
+                        int currentState = state();
+                        if (currentState == 10 || currentState == 12)
+                          throw new IllegalStateException();
+                        boolean pending = profileController.save(wifi, p, currentState == 13);
+                        return new JSONObject()
+                            .put("ok", true)
+                            .put("restartRequired", pending)
+                            .toString();
+                      }
+                      if (command == 7) {
+                        profileController.clear();
+                        return new JSONObject().put("ok", true).toString();
+                      }
                       if (command == 2) apply(p, true);
                       else if (command == 3) apply(p, false);
                       else if (command == 4) stop("Stopped by you");
                       else if (command != 1) throw new IllegalArgumentException("Unknown command");
                       return snapshot().put("ok", true).toString();
                     } catch (Throwable e) {
-                      return new JSONObject().put("ok", false).put("error", message(e)).toString();
+                      return new JSONObject()
+                          .put("ok", false)
+                          .put(
+                              "error",
+                              command >= 5 && command <= 7
+                                  ? HotspotProfileController.safeError(e)
+                                  : message(e))
+                          .toString();
                     }
                   })
               .get(15, TimeUnit.SECONDS);
