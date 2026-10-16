@@ -1,6 +1,6 @@
 # Hotspot Keeper
 
-Android hotspot device access and total-session time limits, using a Shizuku shell helper. Version 0.2.7. No root, Internet permission, analytics or cloud service.
+Android hotspot device access and total-session time limits, using a Shizuku shell helper. Version 0.3.0. No root, Internet permission, analytics or cloud service.
 
 ## Install and use
 
@@ -37,3 +37,18 @@ Restricted APIs run only in the Shizuku shell helper, which validates Binder cal
 ## Branding and dependencies
 
 The stopwatch/Wi-Fi/padlock concept is retained in docs/branding/hotspot-keeper-concept.png. Native launcher, themed and notification resources reproduce it. Shizuku API/provider 13.1.5 and aidl/shared components by RikkaApps are used under MIT; see SHIZUKU-LICENSE and the APK asset.
+
+
+## 0.3.0 interface
+
+A native navy-and-mint dashboard replaces the single long form. Off, starting/stopping, active and unavailable states expose one main action. Applied device access and time limits are read from the controller snapshot, separately from saved defaults. Connected-device rows show friendly names and open device details.
+
+Both rules rows open a bottom sheet with a scrollable body and anchored confirmation/cancel actions. Timer edits stay drafts, show an end-time preview and preserve the original session start. An already elapsed duration requires explicit stop confirmation. The controller rejects live edits if their expected session has changed. Save defaults works offline without starting the hotspot or requiring notification permission. Restricted defaults with no selected devices fail validation; removing a saved device never silently changes access to password mode.
+
+Settings contains saved devices, optional external detection, live connection status and support links. Known devices have explicit rename/remove controls and connected-device enrolment. Setup & help explains Shizuku trust and purpose, Developer options, Wireless debugging, pairing/start, permissions and reboot recovery. Troubleshooting offers Android settings shortcuts and copyable diagnostics.
+
+Starting or editing a managed session does not enable external detection. A session-only foreground monitor supplies status/cutoff notifications until that session ends, then exits when detection is off. Existing opted-in watchers remain enabled. Native typography uses sp, spacing uses dp, touch controls have 48dp minimum targets, system insets are respected, and scrolling handles large text or long device lists. Timer stops can be selected with touch, keyboard or accessibility scroll actions.
+
+This branch is based on PR #3 while it remains open; merge #3 first. Controller protocol version is bumped to expose the applied allowlist and reject stale session edits. As with prior helper updates, an unfinished protected session can end safely during replacement. Prefer upgrading with the hotspot off.
+
+Build and platform-independent rule tests pass. No Android runtime is available in the build environment, so actual screen captures, font scaling, permission-dialog flows, accessibility gestures, notifications and hotspot enforcement still need Pixel testing. The approved generated concepts are design references, not screenshots of this build.

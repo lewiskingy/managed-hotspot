@@ -252,6 +252,10 @@ public final class HotspotBackend extends Binder {
       throw new IllegalStateException(initError.isEmpty() ? "Controller initializing" : initError);
     int s = state();
     observeSession(s);
+    if (!start
+        && input.has("expectedSession")
+        && input.optLong("expectedSession") != sessionStarted)
+      throw new IllegalStateException("The hotspot session changed. Reopen the session editor.");
     if (!start && s != 13) throw new IllegalStateException("Hotspot is not running");
     if (start && (s == 12 || s == 10))
       throw new IllegalStateException("Hotspot is changing state; retry shortly");
@@ -450,6 +454,7 @@ public final class HotspotBackend extends Binder {
         .put("enabled", s == 13)
         .put("managed", managed)
         .put("restricted", restricted)
+        .put("allowed", new JSONArray(appliedAllowed))
         .put("allowSupported", canAllow())
         .put("clientsReady", callbackReady)
         .put("clients", new JSONArray(clients))

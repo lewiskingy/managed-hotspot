@@ -38,7 +38,10 @@ public final class SessionService extends Service {
   @Override
   public int onStartCommand(Intent i, int flags, int id) {
     channels(this);
-    if (!MainActivity.prefs(this).getBoolean("watch", false)) {
+    if (i != null && i.getBooleanExtra("sessionOnly", false))
+      MainActivity.prefs(this).edit().putBoolean("activeMonitor", true).apply();
+    if (!MainActivity.prefs(this).getBoolean("watch", false)
+        && !MainActivity.prefs(this).getBoolean("activeMonitor", false)) {
       stopSelf();
       return START_NOT_STICKY;
     }
@@ -68,6 +71,7 @@ public final class SessionService extends Service {
       long activeSession = o.optLong("sessionStarted");
       android.content.SharedPreferences sessionPrefs = MainActivity.prefs(this);
       if (enabled
+          && MainActivity.prefs(this).getBoolean("watch", false)
           && activeSession > 0
           && sessionPrefs.getLong("noticeSession", -1) != activeSession) {
         sessionPrefs.edit().putLong("noticeSession", activeSession).apply();
@@ -78,10 +82,13 @@ public final class SessionService extends Service {
             (sessionPrefs.getString("lastSuccessfulRules", "").isEmpty()
                 ? "No saved rules yet. Tap to set permitted devices and time limit."
                 : "Review this session's devices and time limit. Saved rules apply automatically"
-                      + " unless an error is reported."),
+                    + " unless an error is reported."),
             2);
       }
-      if (enabled && !managed && !o.optBoolean("stopping")) {
+      if (enabled
+          && MainActivity.prefs(this).getBoolean("watch", false)
+          && !managed
+          && !o.optBoolean("stopping")) {
         long session = o.optLong("sessionStarted");
         android.content.SharedPreferences prefs = MainActivity.prefs(this);
         String rules = prefs.getString("lastSuccessfulRules", "");
@@ -140,6 +147,16 @@ public final class SessionService extends Service {
                               + " min left")
                       + " · tap to change rules"
                   : "Hotspot on · no rules applied · tap to set rules";
+      if (!enabled
+          && !managed
+          && !o.optBoolean("awaitingStart")
+          && o.optInt("state") != 12
+          && !MainActivity.prefs(this).getBoolean("watch", false)) {
+        MainActivity.prefs(this).edit().putBoolean("activeMonitor", false).apply();
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
+        return;
+      }
       updateMonitor("Hotspot Keeper", detail);
     } else {
       String e = o.optString("error", ControllerClient.get(this).availability());

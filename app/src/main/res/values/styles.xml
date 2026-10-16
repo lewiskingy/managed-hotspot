@@ -1,0 +1,12 @@
+<resources>
+    <style name="KeeperTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#28E6B5</item>
+        <item name="android:windowBackground">#071827</item>
+        <item name="android:statusBarColor">#071827</item>
+        <item name="android:navigationBarColor">#071827</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:colorControlHighlight">#3028E6B5</item>
+    </style>
+</resources>
