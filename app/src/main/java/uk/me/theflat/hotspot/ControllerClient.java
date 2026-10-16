@@ -60,6 +60,10 @@ public final class ControllerClient {
     return instance;
   }
 
+  boolean connected() {
+    return remote != null;
+  }
+
   String availability() {
     try {
       if (!Shizuku.pingBinder()) return "Start Shizuku first";

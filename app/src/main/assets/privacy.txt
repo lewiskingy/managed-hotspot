@@ -1,0 +1,18 @@
+Hotspot Keeper — Privacy policy
+Effective 16 October 2026
+Developer: Lewis King
+
+Keeper is free, open source and ad-free. It has no analytics, advertising SDK, account, cloud service or Internet permission. Keeper does not send your hotspot or device information to the developer.
+
+On this phone, Keeper processes hotspot state, connected-device Wi-Fi addresses and available DHCP names/IP addresses to display devices and enforce your rules. Device-provided details are untrusted display hints. Saved names, selected device addresses, rules and preferences stay in app-private storage. The Shizuku helper processes this information locally with Android shell privileges and keeps recovery information needed to restore Keeper-owned rules. Shizuku is a separate app with its own terms and privacy practices. Keeper does not require root.
+
+Hotspot passwords are used transiently in the dedicated editor and privileged helper, never stored in Keeper preferences, backups or diagnostics. Android stores the actual hotspot configuration. Discovered names and IPs are not persistently saved by Keeper. Manually saved names and addresses remain until removed or app storage is cleared. Stop protected sessions before clearing storage or uninstalling; app removal does not necessarily remove Android's saved hotspot configuration.
+
+Optional backup exports contain saved names, Wi-Fi addresses and next-session rules. You select the file location; a cloud document provider you choose may upload that file under its own terms. Imports do not change the running session. Backups exclude passwords, permissions and runtime state. Delete exported copies using your file provider.
+
+External links open another app/browser. Shizuku installation, source code, help and any optional support website have their own privacy terms. Keeper does not receive browsing or payment details. Support is never required and unlocks no feature.
+
+You can remove saved devices in Settings, disable optional automatic detection, revoke Shizuku access, clear Keeper's app storage or uninstall. Android notification settings control alerts. Keeper does not knowingly collect children's personal data or operate a server.
+
+Questions or deletion guidance: https://github.com/lewiskingy/managed-hotspot/issues
+Do not post passwords, private backups or device addresses in public issues. Changes to this policy will be committed with the source code.

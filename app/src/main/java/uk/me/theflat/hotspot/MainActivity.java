@@ -77,6 +77,12 @@ public final class MainActivity extends Activity {
     getWindow().setNavigationBarColor(BG);
     if (saved != null) page = saved.getString("page", "home");
     show(page);
+    if (saved == null && !prefs(this).getBoolean("setupOffered", false)) {
+      boolean existing =
+          prefs(this).contains("lastSuccessfulRules") || prefs(this).contains("known");
+      prefs(this).edit().putBoolean("setupOffered", true).apply();
+      if (!existing) startActivity(new Intent(this, SetupActivity.class));
+    }
     if (prefs(this).getBoolean("watch", false) && notificationAllowed())
       startForegroundService(new Intent(this, SessionService.class));
   }
@@ -790,6 +796,27 @@ public final class MainActivity extends Activity {
     divider(control);
     text(control, "Required for device restrictions and timed shutdown.", 14, MUTED, false);
     heading("Support", "");
+    LinearLayout setup = card(root);
+    row(
+        setup,
+        "shield",
+        "Guided setup",
+        "Shizuku, permissions and first start",
+        () -> startActivity(new Intent(this, SetupActivity.class)));
+    row(
+        setup,
+        "book",
+        "Privacy & source",
+        "Free · no ads · no analytics",
+        () -> AppInformation.privacy(this));
+    row(
+        setup,
+        "devices",
+        "Settings backup",
+        "Export or import local names and rules",
+        () -> startActivity(new Intent(this, SettingsBackupActivity.class)));
+    AppInformation.addSupport(this, setup);
+
     LinearLayout support = card(root);
     row(support, "book", "Setup & help", "Getting started and everyday use", () -> show("help"));
     divider(support);
@@ -802,7 +829,7 @@ public final class MainActivity extends Activity {
     divider(support);
     row(support, "pulse", "Diagnostics", "Technical details", this::diagnostics);
     space(root, 18);
-    TextView version = text(root, "Keeper · version 0.3.2", 12, MUTED, false);
+    TextView version = text(root, "Keeper · version 0.4.0", 12, MUTED, false);
     version.setGravity(Gravity.CENTER);
   }
 

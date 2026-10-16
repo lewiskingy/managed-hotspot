@@ -39,7 +39,7 @@ final class KeeperUi {
 
   static LinearLayout column(Context c) {
     LinearLayout l = new LinearLayout(c);
-    l.setOrientation(1);
+    l.setOrientation(LinearLayout.VERTICAL);
     return l;
   }
 
@@ -49,7 +49,7 @@ final class KeeperUi {
     t.setTextSize(size);
     t.setTextColor(color);
     t.setFontFeatureSettings("tnum");
-    if (bold) t.setTypeface(null, 1);
+    if (bold) t.setTypeface(null, Typeface.BOLD);
     return t;
   }
 

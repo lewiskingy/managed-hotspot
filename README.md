@@ -1,6 +1,6 @@
 # Hotspot Keeper
 
-Keeper manages an Android phone's normal internet-sharing hotspot with device allowlists, total-session time limits and session alerts. It uses the existing hotspot name/password and a Shizuku shell helper. **Current version: 0.3.2.** No root, analytics, cloud service or app Internet permission.
+Keeper manages an Android phone's normal internet-sharing hotspot with device allowlists, total-session time limits and session alerts. It uses the existing hotspot name/password and a Shizuku shell helper. **Current version: 0.4.0.** No root, analytics, cloud service or app Internet permission.
 
 ## Setup and everyday use
 
@@ -90,3 +90,11 @@ Automated checks do not validate device-specific privileged APIs or rendered UI.
 ## Branding and dependencies
 
 The stopwatch/Wi-Fi/padlock concept is in `docs/branding/hotspot-keeper-concept.png`; native launcher/themed/notification resources reproduce it. Shizuku API/provider 13.1.5 and aidl/shared components by RikkaApps are MIT licensed; see `SHIZUKU-LICENSE` and the licence bundled in APK assets.
+
+## Free, open source and preparing for Play
+
+Keeper is free and ad-free under the [MIT licence](LICENSE); bundled dependencies retain their own licences. The first-run guided setup links to official Shizuku downloads, explains Developer options, trusted Wi-Fi, pairing/start and Keeper authorisation, then returns to the home screen. Reopen it from Settings. Android requires user action for protected settings. After reboot, Shizuku normally needs starting again. Existing installs keep their preferences and are not forced through onboarding.
+
+Settings → Settings backup exports/imports local device names and next-session rules through Android's file picker. Files include MAC addresses: keep them private. They exclude hotspot passwords, Shizuku permissions, detection opt-in and running state. Imports require confirmation and never alter the current hotspot.
+
+Read the [privacy policy](app/src/main/assets/privacy.txt) and [Play preparation guide](docs/play-release.md). The repository includes a public-policy HTML page ready to host, an unsigned review-AAB CI build and opt-in production signing. Play publication still requires account setup, a hosted policy, real-device review and policy approval. The optional support link is hidden until a real URL is configured and its payment-policy eligibility checked; there are no paid features.

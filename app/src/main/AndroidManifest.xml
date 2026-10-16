@@ -9,6 +9,8 @@
  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
  <queries><package android:name="moe.shizuku.privileged.api"/></queries>
  <application android:theme="@style/KeeperTheme" android:label="Hotspot Keeper" android:icon="@drawable/ic_launcher_legacy" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:supportsRtl="true">
+  <activity android:name=".SettingsBackupActivity" android:exported="false"/>
+  <activity android:name=".SetupActivity" android:exported="false"/>
   <activity android:icon="@mipmap/ic_launcher" android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <service android:icon="@drawable/ic_launcher_legacy" android:name=".SessionService" android:exported="false" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Hotspot session detection, device access rules and timed shutdown"/></service>
   <service android:name=".StopService" android:exported="false"/>
