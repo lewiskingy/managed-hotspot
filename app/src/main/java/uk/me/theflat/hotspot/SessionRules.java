@@ -32,6 +32,15 @@ public final class SessionRules {
     return nearest;
   }
 
+  public static int nextMinutes(int current, boolean forward) {
+    int next = current;
+    for (int stop : TIMER_MINUTES) {
+      if (forward && stop > current) return stop;
+      if (!forward && stop < current) next = stop;
+    }
+    return next;
+  }
+
   public static long deadline(long started, long duration) {
     return started == 0 || duration == 0 ? 0 : started + duration;
   }

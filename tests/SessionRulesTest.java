@@ -27,6 +27,10 @@ public class SessionRulesTest {
     for (int stop : SessionRules.TIMER_MINUTES) check(SessionRules.snapMinutes(stop) == stop);
     check(SessionRules.snapMinutes(8) == 10);
     check(SessionRules.snapMinutes(76) == 90);
+    check(SessionRules.nextMinutes(10, true) == 20);
+    check(SessionRules.nextMinutes(90, false) == 60);
+    check(SessionRules.nextMinutes(0, false) == 0);
+    check(SessionRules.nextMinutes(120, true) == 120);
     System.out.println("Session rules checks passed");
   }
 

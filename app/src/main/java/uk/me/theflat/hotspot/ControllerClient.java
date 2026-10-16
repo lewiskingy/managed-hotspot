@@ -99,7 +99,7 @@ public final class ControllerClient {
               .daemon(true)
               .processNameSuffix("controller")
               .tag("keeper-controller")
-              .version(5)
+              .version(6)
               .debuggable(false),
           connection);
     } catch (RuntimeException e) {
