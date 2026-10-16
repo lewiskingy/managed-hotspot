@@ -1,6 +1,5 @@
 package uk.me.theflat.hotspot;
 
-import android.app.usage.*;
 import android.content.Context;
 import android.net.*;
 import android.net.wifi.*;
@@ -30,7 +29,7 @@ public final class HotspotBackend extends Binder {
   private long startDeadline = 0;
   private long sessionStarted = 0, timeLimitMs = 0;
   private boolean observedOff = false, startObserved = false;
-  private long deadline = 0, cap = 0, baseline = -1, used = -1, lastRead = 0;
+  private long deadline = 0;
   private String error = "", reason = "", initError = "", startError = "";
   private long generation = 0;
   private int lastState = 11;
@@ -241,47 +240,11 @@ public final class HotspotBackend extends Binder {
     return call(b, "build");
   }
 
-  private long readUsage() {
-    try {
-      // Request a stats refresh when supported. This can still lag modem/offloaded traffic.
-      try {
-        Class<?> sm = Class.forName("android.os.ServiceManager");
-        IBinder binder =
-            (IBinder) sm.getMethod("getService", String.class).invoke(null, "netstats");
-        Object service =
-            Class.forName("android.net.INetworkStatsService$Stub")
-                .getMethod("asInterface", IBinder.class)
-                .invoke(null, binder);
-        call(service, "forceUpdate");
-      } catch (Exception ignored) {
-      }
-      NetworkStatsManager n = shell.getSystemService(NetworkStatsManager.class);
-      long total = 0;
-      boolean found = false;
-      for (int type : new int[] {ConnectivityManager.TYPE_MOBILE, ConnectivityManager.TYPE_WIFI}) {
-        try (NetworkStats ns = n.querySummary(type, null, 0, System.currentTimeMillis())) {
-          NetworkStats.Bucket b = new NetworkStats.Bucket();
-          while (ns.hasNextBucket()) {
-            ns.getNextBucket(b);
-            if (b.getUid() == NetworkStats.Bucket.UID_TETHERING) {
-              total += b.getRxBytes() + b.getTxBytes();
-              found = true;
-            }
-          }
-        }
-      }
-      return found ? total : -1;
-    } catch (Exception e) {
-      return -1;
-    }
-  }
-
   private SessionRules parse(JSONObject p) throws Exception {
     JSONArray a = p.optJSONArray("allowed");
     List<String> allowed = new ArrayList<>();
     if (a != null) for (int i = 0; i < a.length(); i++) allowed.add(a.getString(i));
-    return new SessionRules(
-        p.optLong("minutes"), p.optLong("mb"), p.optBoolean("restricted"), allowed);
+    return new SessionRules(p.optLong("minutes"), p.optBoolean("restricted"), allowed);
   }
 
   private void apply(JSONObject input, boolean start) throws Exception {
@@ -295,26 +258,19 @@ public final class HotspotBackend extends Binder {
     SessionRules r = parse(input);
     if (r.restricted && !canAllow())
       throw new IllegalStateException("Pixel has not reported support for device allowlists");
-    long current = readUsage();
-    if (r.capBytes > 0 && current < 0)
-      throw new IllegalStateException(
-          "Tethering counters unavailable. Leave data cap blank; no cap has been applied.");
     boolean newSession = !managed;
-    if (!newSession && r.capBytes > 0 && baseline < 0)
-      throw new IllegalStateException(
-          "No session data baseline. Stop/restart hotspot to establish one before adding a cap.");
     Object currentConfig = configuration();
     Object saved = original;
     if (newSession) original = currentConfig;
     byte[] previousRecord =
         java.nio.file.Files.exists(RECOVERY) ? java.nio.file.Files.readAllBytes(RECOVERY) : null;
     try {
-      updateWake(r.durationMs > 0 || r.capBytes > 0);
+      updateWake(r.durationMs > 0);
       storeRecovery(r);
       setConfiguration(withRules(currentConfig, r.restricted, r.allowed));
     } catch (Exception e) {
       original = saved;
-      updateWake(managed && (deadline > 0 || cap > 0));
+      updateWake(managed && deadline > 0);
       if (previousRecord == null) java.nio.file.Files.deleteIfExists(RECOVERY);
       else writeRecord(previousRecord);
       throw e;
@@ -324,10 +280,7 @@ public final class HotspotBackend extends Binder {
     Collections.sort(appliedAllowed);
     timeLimitMs = r.durationMs;
     deadline = SessionRules.deadline(sessionStarted, timeLimitMs);
-    cap = r.capBytes;
     if (newSession) {
-      baseline = current;
-      used = current >= 0 ? 0 : -1;
       generation++;
     }
     managed = true;
@@ -454,7 +407,6 @@ public final class HotspotBackend extends Binder {
       if (managed && s == 11) {
         managed = false;
         deadline = 0;
-        cap = 0;
         stopping = false;
         error = "";
         updateWake(false);
@@ -473,17 +425,6 @@ public final class HotspotBackend extends Binder {
       if (SessionRules.expired(deadline, SystemClock.elapsedRealtime())) {
         stop("Timer reached");
         return;
-      }
-      if (SystemClock.elapsedRealtime() - lastRead >= 5000) {
-        lastRead = SystemClock.elapsedRealtime();
-        long current = readUsage();
-        if (current >= 0 && baseline >= 0 && current >= baseline) {
-          used = current - baseline;
-          if (cap > 0 && used >= cap) stop("Data allowance reached");
-        } else {
-          used = -1;
-          if (cap > 0) stop("Data meter unavailable—stopping protected session");
-        }
       }
     } catch (Throwable e) {
       error = message(e);
@@ -516,8 +457,6 @@ public final class HotspotBackend extends Binder {
         .put("startObserved", startObserved)
         .put("timeLimitMs", timeLimitMs)
         .put("deadline", deadline)
-        .put("used", used)
-        .put("capBytes", cap)
         .put("generation", generation)
         .put("stopping", stopping)
         .put("awaitingStart", awaitingStart)

@@ -3,15 +3,13 @@ package uk.me.theflat.hotspot;
 import java.util.*;
 
 public final class SessionRules {
-  public final long durationMs, capBytes;
+  public final long durationMs;
   public final boolean restricted;
   public final List<String> allowed;
 
-  public SessionRules(long minutes, long mb, boolean restricted, List<String> addresses) {
-    if (minutes < 0 || minutes > 10080 || mb < 0 || mb > 1048576)
-      throw new IllegalArgumentException("Limits outside range");
+  public SessionRules(long minutes, boolean restricted, List<String> addresses) {
+    if (minutes < 0 || minutes > 10080) throw new IllegalArgumentException("Limits outside range");
     this.durationMs = minutes * 60000;
-    this.capBytes = mb * 1048576;
     this.restricted = restricted;
     LinkedHashSet<String> clean = new LinkedHashSet<>();
     for (String s : addresses) {

@@ -12,7 +12,6 @@ import org.json.*;
 
 public final class MainActivity extends Activity {
   private LinearLayout root, deviceList;
-  private EditText cap;
   private SeekBar timer;
   private TextView timerLabel, timerPreview;
   private Switch restrict, watch;
@@ -51,7 +50,7 @@ public final class MainActivity extends Activity {
           return insets;
         });
     label("Hotspot Keeper", 28);
-    label("Shizuku edition · 0.2.6", 14);
+    label("Shizuku edition · 0.2.7", 14);
     status = label("Connecting…", 17);
     button(
         "Connect / authorise Shizuku",
@@ -117,14 +116,12 @@ public final class MainActivity extends Activity {
             updateTimerPreview();
           }
         });
-    cap = field("Data allowance in MB · blank = unlimited");
     try {
       timer.setProgress(
           SessionRules.snapMinutes(Integer.parseInt(prefs(this).getString("minutes", "0"))));
     } catch (NumberFormatException ignored) {
     }
     updateTimerPreview();
-    cap.setText(prefs(this).getString("cap", ""));
     restrict = new Switch(this);
     restrict.setText("Only selected devices");
     restrict.setTextColor(-1);
@@ -132,7 +129,7 @@ public final class MainActivity extends Activity {
     root.addView(restrict);
     label(
         "When off, anyone with your existing hotspot password can connect. Time limits use total"
-            + " session duration; edited data caps use the session's original baseline.",
+            + " session duration.",
         14);
     deviceList = new LinearLayout(this);
     deviceList.setOrientation(1);
@@ -154,11 +151,6 @@ public final class MainActivity extends Activity {
     label(
         "Device addresses may change with private/randomised Wi-Fi addresses. Long-press a saved"
             + " device to rename or remove it. Hidden SSID is not used as an access restriction.",
-        14);
-    label(
-        "Data counters may lag and include other tethering. A cap stops the hotspot after reported"
-            + " usage reaches the allowance; overshoot is possible. If counters fail during a"
-            + " capped session, Keeper requests shutdown.",
         14);
     label(
         "Automatic prompts need this watcher running and Shizuku started. After reboot restart"
@@ -207,21 +199,19 @@ public final class MainActivity extends Activity {
       return;
     }
     try {
-      long m = timer.getProgress(), mb = SessionPolicy.parse(cap.getText().toString(), 1048576);
+      long m = timer.getProgress();
       List<String> selected = new ArrayList<>();
       for (Map.Entry<String, CheckBox> e : boxes.entrySet())
         if (e.getValue().isChecked()) selected.add(e.getKey());
-      new SessionRules(m, mb, restrict.isChecked(), selected);
+      new SessionRules(m, restrict.isChecked(), selected);
       JSONObject p =
           new JSONObject()
               .put("minutes", m)
-              .put("mb", mb)
               .put("restricted", restrict.isChecked())
               .put("allowed", new JSONArray(selected));
       prefs(this)
           .edit()
           .putString("minutes", Integer.toString(timer.getProgress()))
-          .putString("cap", cap.getText().toString())
           .putBoolean("restricted", restrict.isChecked())
           .putString("selected", new JSONArray(selected).toString())
           .apply();
@@ -290,7 +280,7 @@ public final class MainActivity extends Activity {
         elapsed
             + "\n"
             + (minutes == 0
-                ? "Normal idle shutdown still applies. Data cap and manual stop also apply."
+                ? "Normal idle shutdown still applies. Manual stop also applies."
                 : (started != 0 && end <= now
                     ? "Will stop immediately when applied."
                     : "If applied, ends at "
@@ -308,7 +298,7 @@ public final class MainActivity extends Activity {
       return;
     }
     boolean enabled = latest.optBoolean("enabled"), managed = latest.optBoolean("managed");
-    long deadline = latest.optLong("deadline"), used = latest.optLong("used", -1);
+    long deadline = latest.optLong("deadline");
     String state =
         enabled
             ? "Hotspot on"
@@ -330,10 +320,6 @@ public final class MainActivity extends Activity {
                         : (SessionRules.remaining(deadline, SystemClock.elapsedRealtime()) + 59999)
                                 / 60000
                             + " min remaining")
-                    + " · "
-                    + (used < 0
-                        ? "Usage unavailable"
-                        : String.format(Locale.UK, "%.1f MB reported", used / 1048576.0))
                     + "\n"
                 : "")
             + "Connected: "
@@ -444,7 +430,7 @@ public final class MainActivity extends Activity {
             (d, w) -> {
               try {
                 String address = mac.getText().toString().trim().toLowerCase(Locale.ROOT);
-                new SessionRules(0, 0, true, Collections.singletonList(address));
+                new SessionRules(0, true, Collections.singletonList(address));
                 JSONObject names = known();
                 names.put(
                     address,
@@ -543,6 +529,7 @@ public final class MainActivity extends Activity {
   protected void onResume() {
     super.onResume();
     resumed = true;
+    SessionService.acknowledge(this);
     handler.removeCallbacks(refresh);
     handler.post(refresh);
   }

@@ -7,12 +7,4 @@ public final class SessionPolicy {
     if (n < 0 || n > max) throw new IllegalArgumentException("Value outside range");
     return n;
   }
-
-  public static long delta(long baseline, long current) {
-    return current >= baseline ? current - baseline : 0;
-  }
-
-  public static boolean reached(long used, long cap) {
-    return cap > 0 && used >= cap;
-  }
 }

@@ -13,11 +13,6 @@ public class SessionPolicyTest {
       }
       check(rejected);
     }
-    check(SessionPolicy.delta(50, 100) == 50);
-    check(SessionPolicy.delta(100, 50) == 0);
-    check(!SessionPolicy.reached(100, 0));
-    check(!SessionPolicy.reached(99, 100));
-    check(SessionPolicy.reached(100, 100));
     System.out.println("Session policy checks passed");
   }
 
