@@ -51,7 +51,7 @@ public final class MainActivity extends Activity {
           return insets;
         });
     label("Hotspot Keeper", 28);
-    label("Shizuku edition · 0.2.4", 14);
+    label("Shizuku edition · 0.2.5", 14);
     status = label("Connecting…", 17);
     button(
         "Connect / authorise Shizuku",
@@ -333,11 +333,24 @@ public final class MainActivity extends Activity {
                     + "\n"
                 : "")
             + "Connected: "
-            + latest.optJSONArray("clients")
+            + connectedDeviceNames()
             + "\nDevice allowlist: "
             + (latest.optBoolean("allowSupported") ? "supported" : "not yet supported/confirmed")
             + (latest.optString("error").isEmpty() ? "" : "\n" + latest.optString("error")));
     apply.setText(enabled ? "Apply rules to running hotspot" : "Start hotspot with these rules");
+  }
+
+  private String connectedDeviceNames() {
+    JSONArray clients = latest.optJSONArray("clients");
+    if (clients == null || clients.length() == 0) return "None";
+    JSONObject names = known();
+    List<String> labels = new ArrayList<>();
+    for (int i = 0; i < clients.length(); i++) {
+      String mac = clients.optString(i);
+      String name = names.optString(mac.toLowerCase(Locale.ROOT), "").trim();
+      labels.add(name.isEmpty() ? mac : name);
+    }
+    return String.join(", ", labels);
   }
 
   private JSONObject known() {
