@@ -45,12 +45,7 @@ public final class SessionService extends Service {
     if (!foregroundStarted) {
       foregroundStarted = true;
       startForeground(
-          1,
-          notification(
-              this,
-              "Hotspot Keeper is watching",
-              "Waiting for hotspot · tap to set session rules",
-              false));
+          1, notification(this, "Hotspot Keeper", "Background monitoring enabled", false));
     }
     handler.removeCallbacks(poll);
     handler.post(poll);
@@ -63,12 +58,41 @@ public final class SessionService extends Service {
     boolean ready = o.optBoolean("ready") && o.optBoolean("ok");
     if (ready) {
       boolean enabled = o.optBoolean("enabled"), managed = o.optBoolean("managed");
-      if (enabled && !lastEnabled && !managed)
-        alert(
-            this,
-            "Hotspot enabled · set session rules",
-            "Choose permitted devices, timer and data allowance. No Keeper rules are active yet.",
-            2);
+      if (enabled && !managed && !o.optBoolean("stopping")) {
+        long session = o.optLong("sessionStarted");
+        android.content.SharedPreferences prefs = MainActivity.prefs(this);
+        String rules = prefs.getString("lastSuccessfulRules", "");
+        if (session > 0 && !rules.isEmpty() && prefs.getLong("autoAttemptSession", -1) != session) {
+          prefs.edit().putLong("autoAttemptSession", session).apply();
+          try {
+            inFlight = true;
+            lastEnabled = true;
+            ControllerClient.get(this)
+                .request(
+                    3,
+                    new JSONObject(rules),
+                    result -> {
+                      inFlight = false;
+                      if (!alive) return;
+                      if (!result.optBoolean("ok"))
+                        alert(
+                            this,
+                            "Hotspot on — rules not applied",
+                            result.optString("error") + ". Tap to change rules or retry.",
+                            5);
+                      observed(result.optBoolean("ok") ? result : o);
+                    });
+            return;
+          } catch (JSONException e) {
+            inFlight = false;
+            alert(
+                this,
+                "Hotspot on — rules not applied",
+                "Saved rules unreadable. Tap to set rules.",
+                5);
+          }
+        }
+      }
       if (!enabled) getSystemService(NotificationManager.class).cancel(2);
       boolean justStopped = lastEnabled && !enabled;
       lastEnabled = enabled;
@@ -87,7 +111,7 @@ public final class SessionService extends Service {
           cap = o.optLong("capBytes");
       String detail =
           !enabled
-              ? "Watching for hotspot · tap to set session rules"
+              ? "Background monitoring enabled"
               : managed
                   ? "Rules active · "
                       + (deadline == 0
@@ -96,11 +120,11 @@ public final class SessionService extends Service {
                                       + 59999)
                                   / 60000
                               + " min left")
-                      + " · "
+                      + " · tap to change rules · "
                       + (used < 0
                           ? "usage unavailable"
                           : used / 1048576 + " MB" + (cap > 0 ? " / " + cap / 1048576 + " MB" : ""))
-                  : "Hotspot on · session rules pending";
+                  : "Hotspot on · no rules applied · tap to set rules";
       updateMonitor("Hotspot Keeper", detail);
     } else {
       String e = o.optString("error", ControllerClient.get(this).availability());
@@ -128,6 +152,9 @@ public final class SessionService extends Service {
   static void channels(Context c) {
     NotificationManager n = c.getSystemService(NotificationManager.class);
     n.createNotificationChannel(
+        new NotificationChannel(
+            "idle", "Background monitoring", NotificationManager.IMPORTANCE_MIN));
+    n.createNotificationChannel(
         new NotificationChannel("monitor", "Hotspot watcher", NotificationManager.IMPORTANCE_LOW));
     n.createNotificationChannel(
         new NotificationChannel(
@@ -154,22 +181,27 @@ public final class SessionService extends Service {
             3,
             new Intent(c, StopService.class),
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-    return new Notification.Builder(c, alert ? "alerts" : "monitor")
-        .setSmallIcon(R.drawable.ic_stat_keeper)
-        .setLargeIcon(
-            android.graphics.drawable.Icon.createWithResource(c, R.drawable.ic_launcher_legacy))
-        .setColor(c.getColor(R.color.keeper_icon_accent))
-        .setContentTitle(title)
-        .setContentText(text)
-        .setStyle(new Notification.BigTextStyle().bigText(text))
-        .setContentIntent(edit)
-        .setOnlyAlertOnce(!alert)
-        .setOngoing(!alert)
-        .setAutoCancel(alert)
-        .addAction(new Notification.Action.Builder(null, "Set rules", edit).build())
-        .addAction(new Notification.Action.Builder(null, "Stop hotspot", stop).build())
-        .addAction(new Notification.Action.Builder(null, "Android settings", settings).build())
-        .build();
+    boolean idle = !alert && text.equals("Background monitoring enabled");
+    Notification.Builder builder =
+        new Notification.Builder(c, alert ? "alerts" : idle ? "idle" : "monitor")
+            .setSmallIcon(R.drawable.ic_stat_keeper)
+            .setLargeIcon(
+                android.graphics.drawable.Icon.createWithResource(c, R.drawable.ic_launcher_legacy))
+            .setColor(c.getColor(R.color.keeper_icon_accent))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(new Notification.BigTextStyle().bigText(text))
+            .setContentIntent(edit)
+            .setOnlyAlertOnce(!alert)
+            .setOngoing(!alert)
+            .setAutoCancel(alert);
+    if (!idle)
+      builder
+          .addAction(new Notification.Action.Builder(null, "Change rules", edit).build())
+          .addAction(new Notification.Action.Builder(null, "Stop hotspot", stop).build())
+          .addAction(new Notification.Action.Builder(null, "Android settings", settings).build());
+    if (idle) builder.setLargeIcon((android.graphics.Bitmap) null);
+    return builder.build();
   }
 
   static void alert(Context c, String title, String text, int id) {

@@ -51,7 +51,7 @@ public final class MainActivity extends Activity {
           return insets;
         });
     label("Hotspot Keeper", 28);
-    label("Shizuku edition · 0.2.5", 14);
+    label("Shizuku edition · 0.2.6", 14);
     status = label("Connecting…", 17);
     button(
         "Connect / authorise Shizuku",
@@ -66,7 +66,7 @@ public final class MainActivity extends Activity {
           }
         });
     watch = new Switch(this);
-    watch.setText("Prompt whenever hotspot is enabled");
+    watch.setText("Automatically apply last rules when hotspot starts");
     watch.setTextColor(-1);
     watch.setChecked(prefs(this).getBoolean("watch", false));
     root.addView(watch);
@@ -244,6 +244,8 @@ public final class MainActivity extends Activity {
               busy = false;
               apply.setEnabled(true);
               if (o.optBoolean("ok")) {
+                if (command == 2 || command == 3)
+                  prefs(this).edit().putString("lastSuccessfulRules", p.toString()).apply();
                 latest = o;
                 renderStatus();
                 getSystemService(NotificationManager.class).cancel(2);
@@ -291,7 +293,9 @@ public final class MainActivity extends Activity {
                 ? "Normal idle shutdown still applies. Data cap and manual stop also apply."
                 : (started != 0 && end <= now
                     ? "Will stop immediately when applied."
-                    : "Will end at " + clockTime(end) + (started == 0 ? " if started now" : ""))));
+                    : "If applied, ends at "
+                        + clockTime(end)
+                        + (started == 0 ? " if started now" : ""))));
     timer.setContentDescription(
         "Total session time limit: " + (minutes == 0 ? "unlimited" : minutes + " minutes"));
   }
