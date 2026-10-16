@@ -48,6 +48,9 @@ public final class HotspotBackend extends Binder {
     this();
   }
 
+  // TetheringManager existed as a system API before its API-36 public exposure.
+  // This class runs as verified Shizuku shell, catches unavailable APIs, and reports failure.
+  @android.annotation.SuppressLint("NewApi")
   private void initialize() {
     try {
       Class<?> at = Class.forName("android.app.ActivityThread");
@@ -251,6 +254,9 @@ public final class HotspotBackend extends Binder {
     return new SessionRules(p.optLong("minutes"), p.optBoolean("restricted"), allowed);
   }
 
+  // Legacy system startTethering and callback are intentionally used by the shell helper.
+  // Their public SDK exposure date does not describe availability to this privileged process.
+  @android.annotation.SuppressLint("NewApi")
   private void apply(JSONObject input, boolean start) throws Exception {
     if (wifi == null || !initError.isEmpty())
       throw new IllegalStateException(initError.isEmpty() ? "Controller initializing" : initError);
