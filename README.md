@@ -4,7 +4,7 @@ An Android app for managing the phone's existing Wi-Fi hotspot: choose known dev
 
 ## Install and use
 
-1. Install the APK over the earlier Hotspot Keeper build. The supplied 0.2.3 APK uses the same development signing certificate, so saved settings are preserved.
+1. Install the APK over the earlier Hotspot Keeper build. The supplied 0.2.4 APK uses the same development signing certificate, so saved settings are preserved.
 2. Start Shizuku, open Keeper, and tap **Connect / authorise Shizuku**. Approve only this app's request.
 3. Allow notifications and turn on **Prompt whenever hotspot is enabled**. This arms an ongoing foreground watcher.
 4. Enable the hotspot from Android's Quick Settings or Settings. Keeper posts **Hotspot enabled · set session rules** within roughly one polling interval (normally three seconds). Tap it to choose rules. Android does not permit us to reliably force the editor onto the screen.
@@ -84,6 +84,10 @@ Fixes `SecurityException: Package android does not belong to 2000` when applying
 
 This fix is compiled and regression-tested against an Android-context fixture reproducing inherited caller attribution. Real Pixel enforcement still needs on-device confirmation.
 
-## App identity (0.2.3)
+## App identity (0.2.4)
 
 The approved stopwatch / Wi-Fi / padlock concept is retained at `docs/branding/hotspot-keeper-concept.png`. Native vector resources reproduce the mark for a sharp adaptive launcher icon, circular launcher masks and Android themed icons. Notifications use a matching alpha-only status-bar mark, with the coloured icon as their optional large icon. The SDK build compiles Android resources and generates `R.java`, matching the standard Gradle resource pipeline.
+
+### Total session timer (0.2.4)
+
+The linear 0–120 minute slider snaps to 0, 5, 10, 20, 30, 45, 60, 90 and 120. Zero removes the time limit while normal idle shutdown and any data cap still apply. Limits run from the observed hotspot start, not the latest Apply. Elapsed time and the proposed end time appear beside the slider; an already elapsed limit warns that applying will stop immediately. If Keeper attaches to an already-running hotspot, the baseline is labelled “tracked since”. Data usage keeps its existing baseline.

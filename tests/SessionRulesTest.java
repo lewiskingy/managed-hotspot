@@ -18,6 +18,17 @@ public class SessionRulesTest {
     check(SessionRules.expired(100, 100));
     check(SessionRules.remaining(100, 101) == 0);
     check(SessionRules.remaining(100, 99) == 1);
+    long started = 100000;
+    long now = started + 7 * 60000;
+    long end = SessionRules.deadline(started, 10 * 60000);
+    check(SessionRules.remaining(end, now) == 3 * 60000);
+    check(SessionRules.deadline(started, 10 * 60000) == end); // reapply keeps end
+    check(SessionRules.expired(SessionRules.deadline(started, 5 * 60000), now));
+    check(SessionRules.deadline(started, 0) == 0);
+    check(SessionRules.deadline(0, 60000) == 0);
+    for (int stop : SessionRules.TIMER_MINUTES) check(SessionRules.snapMinutes(stop) == stop);
+    check(SessionRules.snapMinutes(8) == 10);
+    check(SessionRules.snapMinutes(76) == 90);
     System.out.println("Session rules checks passed");
   }
 

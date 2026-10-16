@@ -25,6 +25,19 @@ public final class SessionRules {
     this.allowed = Collections.unmodifiableList(new ArrayList<>(clean));
   }
 
+  public static final int[] TIMER_MINUTES = {0, 5, 10, 20, 30, 45, 60, 90, 120};
+
+  public static int snapMinutes(int value) {
+    int nearest = 0;
+    for (int stop : TIMER_MINUTES)
+      if (Math.abs(stop - value) < Math.abs(nearest - value)) nearest = stop;
+    return nearest;
+  }
+
+  public static long deadline(long started, long duration) {
+    return started == 0 || duration == 0 ? 0 : started + duration;
+  }
+
   public static long remaining(long deadline, long now) {
     return deadline == 0 ? 0 : Math.max(0, deadline - now);
   }
