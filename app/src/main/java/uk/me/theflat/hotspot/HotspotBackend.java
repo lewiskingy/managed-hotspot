@@ -28,6 +28,8 @@ public final class HotspotBackend extends Binder {
       stopping = false,
       awaitingStart = false;
   private long startDeadline = 0;
+  private long sessionStarted = 0, timeLimitMs = 0;
+  private boolean observedOff = false, startObserved = false;
   private long deadline = 0, cap = 0, baseline = -1, used = -1, lastRead = 0;
   private String error = "", reason = "", initError = "", startError = "";
   private long generation = 0;
@@ -50,7 +52,7 @@ public final class HotspotBackend extends Binder {
       Object thread = at.getMethod("currentActivityThread").invoke(null);
       if (thread == null) thread = at.getMethod("systemMain").invoke(null);
       Context system = (Context) at.getMethod("getSystemContext").invoke(thread);
-      shell = system.createPackageContext("com.android.shell", Context.CONTEXT_IGNORE_SECURITY);
+      shell = ShellIdentity.create(system, thread);
       appUid = shell.getPackageManager().getApplicationInfo("uk.me.theflat.hotspot", 0).uid;
       wifi = shell.getSystemService(WifiManager.class);
       tether = shell.getSystemService(TetheringManager.class);
@@ -72,6 +74,7 @@ public final class HotspotBackend extends Binder {
                     break;
                   case "onStateChanged":
                     lastState = (Integer) args[0];
+                    observeSession(lastState);
                     callbackReady = true;
                     break;
                   case "onConnectedClientsChanged":
@@ -285,6 +288,7 @@ public final class HotspotBackend extends Binder {
     if (wifi == null || !initError.isEmpty())
       throw new IllegalStateException(initError.isEmpty() ? "Controller initializing" : initError);
     int s = state();
+    observeSession(s);
     if (!start && s != 13) throw new IllegalStateException("Hotspot is not running");
     if (start && (s == 12 || s == 10))
       throw new IllegalStateException("Hotspot is changing state; retry shortly");
@@ -318,7 +322,8 @@ public final class HotspotBackend extends Binder {
     restricted = r.restricted;
     appliedAllowed = new ArrayList<>(r.allowed);
     Collections.sort(appliedAllowed);
-    deadline = r.durationMs == 0 ? 0 : SystemClock.elapsedRealtime() + r.durationMs;
+    timeLimitMs = r.durationMs;
+    deadline = SessionRules.deadline(sessionStarted, timeLimitMs);
     cap = r.capBytes;
     if (newSession) {
       baseline = current;
@@ -412,10 +417,26 @@ public final class HotspotBackend extends Binder {
     // protected.
   }
 
+  private void observeSession(int state) {
+    if (state == 11) {
+      sessionStarted = 0;
+      startObserved = false;
+      observedOff = true;
+    } else if (state == 12) {
+      observedOff = true;
+    } else if (state == 13 && sessionStarted == 0) {
+      sessionStarted = SystemClock.elapsedRealtime();
+      if (!managed) reason = "";
+      startObserved = observedOff;
+      if (managed) deadline = SessionRules.deadline(sessionStarted, timeLimitMs);
+    }
+  }
+
   private void tick() {
     try {
-      if (wifi == null || (!managed && !awaitingStart && original == null)) return;
+      if (wifi == null) return;
       int s = state();
+      observeSession(s);
       if (awaitingStart) {
         if (s == 13) {
           awaitingStart = false;
@@ -477,9 +498,13 @@ public final class HotspotBackend extends Binder {
       return o;
     }
     int s = state();
+    observeSession(s);
     o.put("ready", true)
         .put("android", Build.VERSION.RELEASE)
         .put("uid", android.os.Process.myUid())
+        .put("callerPackage", shell.getOpPackageName())
+        .put("attributionPackage", shell.getAttributionSource().getPackageName())
+        .put("attributionUid", shell.getAttributionSource().getUid())
         .put("state", s)
         .put("enabled", s == 13)
         .put("managed", managed)
@@ -487,6 +512,9 @@ public final class HotspotBackend extends Binder {
         .put("allowSupported", canAllow())
         .put("clientsReady", callbackReady)
         .put("clients", new JSONArray(clients))
+        .put("sessionStarted", sessionStarted)
+        .put("startObserved", startObserved)
+        .put("timeLimitMs", timeLimitMs)
         .put("deadline", deadline)
         .put("used", used)
         .put("capBytes", cap)

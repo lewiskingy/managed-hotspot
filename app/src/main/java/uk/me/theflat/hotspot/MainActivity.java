@@ -12,7 +12,9 @@ import org.json.*;
 
 public final class MainActivity extends Activity {
   private LinearLayout root, deviceList;
-  private EditText minutes, cap;
+  private EditText cap;
+  private SeekBar timer;
+  private TextView timerLabel, timerPreview;
   private Switch restrict, watch;
   private TextView status;
   private Button apply;
@@ -49,14 +51,13 @@ public final class MainActivity extends Activity {
           return insets;
         });
     label("Hotspot Keeper", 28);
-    label("Shizuku edition · 0.2", 14);
+    label("Shizuku edition · 0.2.6", 14);
     status = label("Connecting…", 17);
     button(
         "Connect / authorise Shizuku",
         v -> {
           try {
-            ControllerClient.get(this).authorize();
-            toast("Approve Hotspot Keeper in the Shizuku permission prompt");
+            toast(ControllerClient.get(this).authorize());
           } catch (RuntimeException e) {
             toast(e.getMessage());
             Intent launch =
@@ -65,7 +66,7 @@ public final class MainActivity extends Activity {
           }
         });
     watch = new Switch(this);
-    watch.setText("Prompt whenever hotspot is enabled");
+    watch.setText("Automatically apply last rules when hotspot starts");
     watch.setTextColor(-1);
     watch.setChecked(prefs(this).getBoolean("watch", false));
     root.addView(watch);
@@ -81,9 +82,48 @@ public final class MainActivity extends Activity {
           }
         });
     label("Session rules", 22);
-    minutes = field("Duration in minutes · blank = normal idle shutdown");
+    timerLabel = label("", 17);
+    timer = new SeekBar(this);
+    timer.setMax(120);
+    timer.setOnKeyListener(
+        (v, key, event) -> {
+          if (key != KeyEvent.KEYCODE_DPAD_LEFT && key != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
+          if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            int current = timer.getProgress(), next = current;
+            for (int stop : SessionRules.TIMER_MINUTES) {
+              if (key == KeyEvent.KEYCODE_DPAD_RIGHT && stop > current) {
+                next = stop;
+                break;
+              }
+              if (key == KeyEvent.KEYCODE_DPAD_LEFT && stop < current) next = stop;
+            }
+            timer.setProgress(next);
+          }
+          return true;
+        });
+    root.addView(timer, new LinearLayout.LayoutParams(-1, -2));
+    timerPreview = label("", 14);
+    timer.setOnSeekBarChangeListener(
+        new SeekBar.OnSeekBarChangeListener() {
+          public void onProgressChanged(SeekBar bar, int value, boolean user) {
+            int snapped = SessionRules.snapMinutes(value);
+            if (value != snapped) bar.setProgress(snapped);
+            updateTimerPreview();
+          }
+
+          public void onStartTrackingTouch(SeekBar bar) {}
+
+          public void onStopTrackingTouch(SeekBar bar) {
+            updateTimerPreview();
+          }
+        });
     cap = field("Data allowance in MB · blank = unlimited");
-    minutes.setText(prefs(this).getString("minutes", ""));
+    try {
+      timer.setProgress(
+          SessionRules.snapMinutes(Integer.parseInt(prefs(this).getString("minutes", "0"))));
+    } catch (NumberFormatException ignored) {
+    }
+    updateTimerPreview();
     cap.setText(prefs(this).getString("cap", ""));
     restrict = new Switch(this);
     restrict.setText("Only selected devices");
@@ -91,8 +131,8 @@ public final class MainActivity extends Activity {
     restrict.setChecked(prefs(this).getBoolean("restricted", false));
     root.addView(restrict);
     label(
-        "When off, anyone with your existing hotspot password can connect. Timers start when"
-            + " applied; edited data caps use the session's original baseline.",
+        "When off, anyone with your existing hotspot password can connect. Time limits use total"
+            + " session duration; edited data caps use the session's original baseline.",
         14);
     deviceList = new LinearLayout(this);
     deviceList.setOrientation(1);
@@ -167,8 +207,7 @@ public final class MainActivity extends Activity {
       return;
     }
     try {
-      long m = SessionPolicy.parse(minutes.getText().toString(), 10080),
-          mb = SessionPolicy.parse(cap.getText().toString(), 1048576);
+      long m = timer.getProgress(), mb = SessionPolicy.parse(cap.getText().toString(), 1048576);
       List<String> selected = new ArrayList<>();
       for (Map.Entry<String, CheckBox> e : boxes.entrySet())
         if (e.getValue().isChecked()) selected.add(e.getKey());
@@ -181,7 +220,7 @@ public final class MainActivity extends Activity {
               .put("allowed", new JSONArray(selected));
       prefs(this)
           .edit()
-          .putString("minutes", minutes.getText().toString())
+          .putString("minutes", Integer.toString(timer.getProgress()))
           .putString("cap", cap.getText().toString())
           .putBoolean("restricted", restrict.isChecked())
           .putString("selected", new JSONArray(selected).toString())
@@ -205,6 +244,8 @@ public final class MainActivity extends Activity {
               busy = false;
               apply.setEnabled(true);
               if (o.optBoolean("ok")) {
+                if (command == 2 || command == 3)
+                  prefs(this).edit().putString("lastSuccessfulRules", p.toString()).apply();
                 latest = o;
                 renderStatus();
                 getSystemService(NotificationManager.class).cancel(2);
@@ -225,7 +266,42 @@ public final class MainActivity extends Activity {
             });
   }
 
+  private String clockTime(long elapsedTime) {
+    long wall = System.currentTimeMillis() + elapsedTime - SystemClock.elapsedRealtime();
+    return android.text.format.DateFormat.getTimeFormat(this).format(new Date(wall));
+  }
+
+  private void updateTimerPreview() {
+    int minutes = timer.getProgress();
+    timerLabel.setText(
+        minutes == 0 ? "No time limit" : "Total session limit: " + minutes + " minutes");
+    long started = latest.optLong("sessionStarted");
+    long now = SystemClock.elapsedRealtime();
+    String elapsed =
+        started == 0
+            ? "Timer begins when hotspot starts."
+            : "Session elapsed: "
+                + ((now - started) / 60000)
+                + " min · "
+                + (latest.optBoolean("startObserved") ? "started at " : "tracked since ")
+                + clockTime(started);
+    long end = SessionRules.deadline(started == 0 ? now : started, minutes * 60000L);
+    timerPreview.setText(
+        elapsed
+            + "\n"
+            + (minutes == 0
+                ? "Normal idle shutdown still applies. Data cap and manual stop also apply."
+                : (started != 0 && end <= now
+                    ? "Will stop immediately when applied."
+                    : "If applied, ends at "
+                        + clockTime(end)
+                        + (started == 0 ? " if started now" : ""))));
+    timer.setContentDescription(
+        "Total session time limit: " + (minutes == 0 ? "unlimited" : minutes + " minutes"));
+  }
+
   private void renderStatus() {
+    updateTimerPreview();
     boolean ready = latest.optBoolean("ready") && latest.optBoolean("ok");
     if (!ready) {
       status.setText(ControllerClient.get(this).availability() + "\n" + latest.optString("error"));
@@ -240,7 +316,9 @@ public final class MainActivity extends Activity {
                 ? "Hotspot starting"
                 : "Hotspot off";
     status.setText(
-        state
+        ControllerClient.get(this).availability()
+            + "\n"
+            + state
             + " · "
             + latest.optString("ssid")
             + "\n"
@@ -259,11 +337,24 @@ public final class MainActivity extends Activity {
                     + "\n"
                 : "")
             + "Connected: "
-            + latest.optJSONArray("clients")
+            + connectedDeviceNames()
             + "\nDevice allowlist: "
             + (latest.optBoolean("allowSupported") ? "supported" : "not yet supported/confirmed")
             + (latest.optString("error").isEmpty() ? "" : "\n" + latest.optString("error")));
     apply.setText(enabled ? "Apply rules to running hotspot" : "Start hotspot with these rules");
+  }
+
+  private String connectedDeviceNames() {
+    JSONArray clients = latest.optJSONArray("clients");
+    if (clients == null || clients.length() == 0) return "None";
+    JSONObject names = known();
+    List<String> labels = new ArrayList<>();
+    for (int i = 0; i < clients.length(); i++) {
+      String mac = clients.optString(i);
+      String name = names.optString(mac.toLowerCase(Locale.ROOT), "").trim();
+      labels.add(name.isEmpty() ? mac : name);
+    }
+    return String.join(", ", labels);
   }
 
   private JSONObject known() {

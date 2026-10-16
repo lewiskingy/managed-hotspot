@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Native vector interpretation of the approved stopwatch / Wi-Fi / lock artwork. -->
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.94" android:scaleY="0.94">
+        <path android:fillColor="#28E6B5" android:pathData="M49,20 L59,20 Q61,20 61,22 L61,24 Q61,26 59,26 L56,26 L56,29 L52,29 L52,26 L49,26 Q47,26 47,24 L47,22 Q47,20 49,20 Z" />
+        <path android:fillColor="#00000000" android:strokeColor="#28E6B5" android:strokeWidth="4.3" android:pathData="M54,30 A27,27 0,1 1,53.99,30 Z" />
+        <path android:fillColor="#28E6B5" android:pathData="M75,28 L81,34 Q82,35 81,36 L79,38 Q78,39 77,38 L75,36 L72,39 L69,36 L72,33 L70,31 Q69,30 70,29 L72,27 Q73,26 75,28 Z" />
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M38,47 Q54,32 70,47 M43,54 Q54,44 65,54" />
+        <path android:fillColor="#00000000" android:strokeColor="#28E6B5" android:strokeWidth="3.4" android:pathData="M49,64 L49,60 A5,5 0,0 1,59,60 L59,64" />
+        <path android:fillColor="#28E6B5" android:fillType="evenOdd" android:pathData="M48,63 L60,63 Q62,63 62,65 L62,75 Q62,77 60,77 L48,77 Q46,77 46,75 L46,65 Q46,63 48,63 Z M54,66 A2,2 0,1 0,54.01,66 Z M53.2,69 L52.5,73 L55.5,73 L54.8,69 Z" />
+    </group>
+</vector>

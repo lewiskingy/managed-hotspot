@@ -4,7 +4,7 @@ An Android app for managing the phone's existing Wi-Fi hotspot: choose known dev
 
 ## Install and use
 
-1. Install the APK over the earlier Hotspot Keeper build. The supplied 0.2 APK uses the same development signing certificate, so saved settings are preserved.
+1. Install the APK over the earlier Hotspot Keeper build. The supplied 0.2.6 APK uses the same development signing certificate, so saved settings are preserved.
 2. Start Shizuku, open Keeper, and tap **Connect / authorise Shizuku**. Approve only this app's request.
 3. Allow notifications and turn on **Prompt whenever hotspot is enabled**. This arms an ongoing foreground watcher.
 4. Enable the hotspot from Android's Quick Settings or Settings. Keeper posts **Hotspot enabled · set session rules** within roughly one polling interval (normally three seconds). Tap it to choose rules. Android does not permit us to reliably force the editor onto the screen.
@@ -77,3 +77,23 @@ On your Pixel, verify:
 ## Third-party software
 
 Shizuku API/provider 13.1.5 and their aidl/shared components, by RikkaApps, are used under the MIT licence. See `SHIZUKU-LICENSE` and the licence bundled in the APK assets.
+
+## 0.2.1 caller-identity fix
+
+Fixes `SecurityException: Package android does not belong to 2000` when applying or starting a session. A fresh shell application context replaces the system-derived package context, which can inherit the system AppOps identity. Before constructing hotspot, power and usage managers, Keeper verifies package name, AppOps package, attribution UID/package, and Android package ownership. Diagnostics expose these identity fields without credentials. The authorise button now distinguishes an actual permission request from access that is already granted. The controller service version is bumped so an APK update replaces the old daemon.
+
+This fix is compiled and regression-tested against an Android-context fixture reproducing inherited caller attribution. Real Pixel enforcement still needs on-device confirmation.
+
+## App identity (0.2.6)
+
+The approved stopwatch / Wi-Fi / padlock concept is retained at `docs/branding/hotspot-keeper-concept.png`. Native vector resources reproduce the mark for a sharp adaptive launcher icon, circular launcher masks and Android themed icons. Notifications use a matching alpha-only status-bar mark, with the coloured icon as their optional large icon. The SDK build compiles Android resources and generates `R.java`, matching the standard Gradle resource pipeline.
+
+### Total session timer (0.2.6)
+
+The linear 0–120 minute slider snaps to 0, 5, 10, 20, 30, 45, 60, 90 and 120. Zero removes the time limit while normal idle shutdown and any data cap still apply. Limits run from the observed hotspot start, not the latest Apply. Elapsed time and the proposed end time appear beside the slider; an already elapsed limit warns that applying will stop immediately. If Keeper attaches to an already-running hotspot, the baseline is labelled “tracked since”. Data usage keeps its existing baseline.
+
+Watcher notifications update only when their displayed state changes, so dismissing an idle watcher notification does not cause it to reappear every poll. A separate cutoff alert is posted once on an observed on-to-off transition caused by the timer, data cap or unavailable data meter. Manual and normal idle shutdown do not generate cutoff alerts. The quiet foreground watcher remains necessary for automatic detection.
+
+### Automatic session rules (0.2.6)
+
+With automatic monitoring enabled, new hotspot sessions use the last successfully applied rules. Failed edits and unsaved changes never replace these defaults. Keeper attempts once per observed session; failure leaves an explicit rules-not-applied alert and can be retried manually. If no rules have been successfully applied yet, tap the session notification to configure them. The active foreground notification offers Change rules, without a second session prompt. Idle monitoring uses a minimal silent channel without action buttons; Android still requires a foreground-service notification.
