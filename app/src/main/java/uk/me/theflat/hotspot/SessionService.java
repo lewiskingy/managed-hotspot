@@ -143,7 +143,10 @@ public final class SessionService extends Service {
             new Intent(c, StopService.class),
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     return new Notification.Builder(c, alert ? "alerts" : "monitor")
-        .setSmallIcon(android.R.drawable.stat_notify_sync)
+        .setSmallIcon(R.drawable.ic_stat_keeper)
+        .setLargeIcon(
+            android.graphics.drawable.Icon.createWithResource(c, R.drawable.ic_launcher_legacy))
+        .setColor(c.getColor(R.color.keeper_icon_accent))
         .setContentTitle(title)
         .setContentText(text)
         .setStyle(new Notification.BigTextStyle().bigText(text))

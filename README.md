@@ -4,7 +4,7 @@ An Android app for managing the phone's existing Wi-Fi hotspot: choose known dev
 
 ## Install and use
 
-1. Install the APK over the earlier Hotspot Keeper build. The supplied 0.2.1 APK uses the same development signing certificate, so saved settings are preserved.
+1. Install the APK over the earlier Hotspot Keeper build. The supplied 0.2.2 APK uses the same development signing certificate, so saved settings are preserved.
 2. Start Shizuku, open Keeper, and tap **Connect / authorise Shizuku**. Approve only this app's request.
 3. Allow notifications and turn on **Prompt whenever hotspot is enabled**. This arms an ongoing foreground watcher.
 4. Enable the hotspot from Android's Quick Settings or Settings. Keeper posts **Hotspot enabled · set session rules** within roughly one polling interval (normally three seconds). Tap it to choose rules. Android does not permit us to reliably force the editor onto the screen.
@@ -83,3 +83,7 @@ Shizuku API/provider 13.1.5 and their aidl/shared components, by RikkaApps, are 
 Fixes `SecurityException: Package android does not belong to 2000` when applying or starting a session. A fresh shell application context replaces the system-derived package context, which can inherit the system AppOps identity. Before constructing hotspot, power and usage managers, Keeper verifies package name, AppOps package, attribution UID/package, and Android package ownership. Diagnostics expose these identity fields without credentials. The authorise button now distinguishes an actual permission request from access that is already granted. The controller service version is bumped so an APK update replaces the old daemon.
 
 This fix is compiled and regression-tested against an Android-context fixture reproducing inherited caller attribution. Real Pixel enforcement still needs on-device confirmation.
+
+## App identity (0.2.2)
+
+The approved stopwatch / Wi-Fi / padlock concept is retained at `docs/branding/hotspot-keeper-concept.png`. Native vector resources reproduce the mark for a sharp adaptive launcher icon, circular launcher masks and Android themed icons. Notifications use a matching alpha-only status-bar mark, with the coloured icon as their optional large icon. The SDK build compiles Android resources and generates `R.java`, matching the standard Gradle resource pipeline.
