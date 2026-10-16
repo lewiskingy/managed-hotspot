@@ -1,7 +1,7 @@
 name: Release preparation
 on:
   pull_request:
-    paths: ['app/**', '*.gradle', '.github/workflows/release-preparation.yml']
+    paths: ['app/**', '*.gradle', 'gradle.properties', '.github/workflows/release-preparation.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,7 +21,11 @@ jobs:
         with:
           gradle-version: '8.11.1'
       - name: Build unsigned review bundle (not upload-ready)
-        run: gradle --no-daemon :app:bundleRelease :app:lintRelease
+        run: |
+          gradle --no-daemon :app:bundleRelease :app:lintRelease || {
+            cat app/build/intermediates/lint_intermediate_text_report/release/lintReportRelease/lint-results-release.txt
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: Keeper-unsigned-review-bundle
