@@ -31,8 +31,8 @@ public final class MainActivity extends Activity {
       countdown,
       elapsed,
       times,
-      accessValue,
-      limitValue,
+      rulesValue,
+      hotspotValue,
       ruleCaption,
       errorLabel;
   private String renderedClients = "";
@@ -43,6 +43,7 @@ public final class MainActivity extends Activity {
   private LinearLayout connectedCard;
   private LinearLayout connectedSection;
   private Dialog editor;
+  private HotspotSettingsSheet hotspotEditor;
   private SeekBar slider;
   private TextView preview, limitLabel;
   private int editingMinutes;
@@ -309,19 +310,14 @@ public final class MainActivity extends Activity {
               else if (!ready()) show("connection");
               else openRules(true, false);
             });
-    heading("Session rules", "");
+    heading("Hotspot", "");
     ruleCaption = text(root, "Saved defaults for next session", 13, MUTED, false);
     space(root, 8);
     LinearLayout rules = card(root);
-    accessValue =
-        row(
-            rules,
-            "shield",
-            "Device access",
-            "Anyone with password",
-            () -> openRules(false, false));
+    rulesValue = row(rules, "shield", "Session rules", "", () -> openRules(false, false));
     divider(rules);
-    limitValue = row(rules, "time", "Time limit", "No time limit", () -> openRules(false, true));
+    hotspotValue =
+        row(rules, "gear", "Hotspot settings", "Name & password", this::openHotspotSettings);
     connectedSection = column(this);
     root.addView(connectedSection);
     space(connectedSection, 16);
@@ -337,10 +333,11 @@ public final class MainActivity extends Activity {
   }
 
   private String deviceName(String mac) {
-    String n = known().optString(mac.toLowerCase(Locale.ROOT), "");
-    return n.trim().isEmpty()
-        ? "Unknown device · …" + mac.substring(Math.max(0, mac.length() - 5))
-        : n;
+    return deviceIdentity(mac).displayName(known().optString(mac.toLowerCase(Locale.ROOT), ""));
+  }
+
+  private DeviceIdentity deviceIdentity(String mac) {
+    return DeviceIdentityJson.find(latest, mac);
   }
 
   private void updateHome() {
@@ -402,15 +399,22 @@ public final class MainActivity extends Activity {
             ? (managed ? "Applied to this session" : "No Keeper rules active · tap to apply")
             : "Saved defaults for next session");
     JSONArray a = rules.optJSONArray("allowed");
-    accessValue.setText(
-        rules.optBoolean("restricted")
-            ? (a == null ? 0 : a.length()) + " permitted devices"
-            : "Anyone with password");
     long m = rules.optLong("minutes");
-    limitValue.setText(m == 0 ? "No time limit" : m + " minutes total");
+    rulesValue.setText(
+        (rules.optBoolean("restricted")
+                ? (a == null ? 0 : a.length()) + " permitted devices"
+                : "Anyone with password")
+            + " · "
+            + (m == 0 ? "No time limit" : m + " minutes total"));
+    hotspotValue.setText(
+        latest.optString("configuredSsid", latest.optString("ssid", ""))
+            + (latest.optBoolean("hotspotSettingsPending")
+                ? " · Saved for next start"
+                : " · Name & password"));
     connectedSection.setVisibility(on ? View.VISIBLE : View.GONE);
     JSONArray clients = latest.optJSONArray("clients");
-    String clientsKey = on + ":" + clients + ":" + known();
+    String clientsKey =
+        on + ":" + clients + ":" + known() + ":" + latest.optJSONArray("clientDetails");
     if (clientsKey.equals(renderedClients)) return;
     renderedClients = clientsKey;
     connectedCard.removeAllViews();
@@ -421,8 +425,30 @@ public final class MainActivity extends Activity {
       for (int i = 0; i < clients.length(); i++) {
         String mac = clients.optString(i);
         if (i > 0) divider(connectedCard);
-        row(connectedCard, "phone", deviceName(mac), "● Connected", () -> editDevice(mac));
+        row(
+            connectedCard,
+            "phone",
+            deviceName(mac),
+            "● Connected"
+                + (deviceIdentity(mac).addresses.isEmpty()
+                    ? ""
+                    : " · " + String.join(", ", deviceIdentity(mac).addresses)),
+            () -> editDevice(mac));
       }
+  }
+
+  private void openHotspotSettings() {
+    if (hotspotEditor != null) hotspotEditor.dismiss();
+    hotspotEditor =
+        new HotspotSettingsSheet(
+            this,
+            (cmd, input, done) -> ControllerClient.get(this).request(cmd, input, done),
+            () -> settings(this),
+            () -> {
+              handler.removeCallbacks(refresh);
+              handler.post(refresh);
+            });
+    hotspotEditor.show();
   }
 
   private JSONObject defaults() {
@@ -776,7 +802,7 @@ public final class MainActivity extends Activity {
     divider(support);
     row(support, "pulse", "Diagnostics", "Technical details", this::diagnostics);
     space(root, 18);
-    TextView version = text(root, "Keeper · version 0.3.0", 12, MUTED, false);
+    TextView version = text(root, "Keeper · version 0.3.2", 12, MUTED, false);
     version.setGravity(Gravity.CENTER);
   }
 
@@ -1061,8 +1087,7 @@ public final class MainActivity extends Activity {
       JSONObject names = known();
       for (int i = 0; i < clients.length(); i++) {
         String mac = clients.getString(i).toLowerCase(Locale.ROOT);
-        if (!names.has(mac))
-          names.put(mac, "Device …" + mac.substring(Math.max(0, mac.length() - 5)));
+        if (!names.has(mac)) names.put(mac, "");
       }
       prefs(this).edit().putString("known", names.toString()).apply();
       show("devices");
@@ -1077,7 +1102,7 @@ public final class MainActivity extends Activity {
     EditText name = new EditText(this), address = new EditText(this);
     name.setTextColor(WHITE);
     name.setHintTextColor(MUTED);
-    name.setHint("Friendly name");
+    name.setHint("Your friendly name (optional)");
     name.setSingleLine();
     address.setTextColor(WHITE);
     address.setHintTextColor(MUTED);
@@ -1086,7 +1111,25 @@ public final class MainActivity extends Activity {
     form.addView(name);
     form.addView(address);
     if (existing != null) {
-      name.setText(known().optString(existing));
+      DeviceIdentity identity = deviceIdentity(existing);
+      String savedName = known().optString(existing);
+      name.setText(savedName.equalsIgnoreCase(existing) ? "" : savedName);
+      text(
+          form,
+          "Reported name: " + (identity.hostname.isEmpty() ? "Not provided" : identity.hostname),
+          14,
+          MUTED,
+          false);
+      text(
+          form,
+          "IP addresses: "
+              + (identity.addresses.isEmpty()
+                  ? "Unavailable"
+                  : String.join(", ", identity.addresses)),
+          14,
+          MUTED,
+          false);
+      text(form, "Reported details are best-effort and do not determine access.", 12, MUTED, false);
       address.setText(existing);
       address.setEnabled(false);
     }
@@ -1139,7 +1182,7 @@ public final class MainActivity extends Activity {
                         new SessionRules(0, true, Collections.singletonList(mac));
                         JSONObject names = known();
                         String label = name.getText().toString().trim();
-                        names.put(mac, label.isEmpty() ? mac : label);
+                        names.put(mac, DeviceIdentity.cleanName(label));
                         prefs(this).edit().putString("known", names.toString()).apply();
                         dialog.dismiss();
                         show(page);
@@ -1196,12 +1239,21 @@ public final class MainActivity extends Activity {
   }
 
   static void settings(Context c) {
-    try {
-      c.startActivity(
-          new Intent(Settings.ACTION_WIRELESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-    } catch (ActivityNotFoundException e) {
-      c.startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    for (String action :
+        new String[] {
+          "com.android.settings.WIFI_TETHER_SETTINGS",
+          "android.settings.TETHER_SETTINGS",
+          Settings.ACTION_WIRELESS_SETTINGS,
+          Settings.ACTION_SETTINGS
+        }) {
+      try {
+        c.startActivity(new Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        return;
+      } catch (ActivityNotFoundException | SecurityException ignored) {
+        /* OEMs expose different entries. */
+      }
     }
+    Toast.makeText(c, "Open hotspot settings in Android Settings", Toast.LENGTH_LONG).show();
   }
 
   private void back() {
@@ -1233,6 +1285,7 @@ public final class MainActivity extends Activity {
   @Override
   protected void onDestroy() {
     if (editor != null) editor.dismiss();
+    if (hotspotEditor != null) hotspotEditor.dismiss();
     super.onDestroy();
   }
 }

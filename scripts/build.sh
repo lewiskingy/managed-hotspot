@@ -9,7 +9,7 @@ mkdir -p build/classes build/dex build/generated dist
 python3 scripts/fetch-deps.py
 sed 's/<manifest xmlns:/<manifest package="uk.me.theflat.hotspot" xmlns:/' app/src/main/AndroidManifest.xml > build/AndroidManifest.xml
 "$bt/aapt2" compile --dir app/src/main/res -o build/resources.zip
-"$bt/aapt2" link -I "$android" --manifest build/AndroidManifest.xml -A app/src/main/assets --min-sdk-version 31 --target-sdk-version 36 --version-code 10 --version-name 0.3.0 --java build/generated build/resources.zip -o build/base.apk
+"$bt/aapt2" link -I "$android" --manifest build/AndroidManifest.xml -A app/src/main/assets --min-sdk-version 31 --target-sdk-version 36 --version-code 12 --version-name 0.3.2 --java build/generated build/resources.zip -o build/base.apk
 javac --release 17 -classpath "$android:app/libs/*" -d build/classes $(find app/src/main/java build/generated -name '*.java')
 jar cf build/classes.jar -C build/classes .
 "$bt/d8" --lib "$android" --min-api 31 --output build/dex build/classes.jar app/libs/*.jar
@@ -25,3 +25,12 @@ java -cp build/policy SessionRulesTest
 # Separate JVM fixture: reproduce ContextImpl attribution inheritance without packaging test stubs.
 javac -d build/identity $(find tests/fixtures -name '*.java') app/src/main/java/uk/me/theflat/hotspot/ShellIdentity.java tests/ShellIdentityTest.java
 java -cp build/identity uk.me.theflat.hotspot.ShellIdentityTest
+# Discovery display policy is independent of Android and does not affect access rules.
+javac -d build/identity-model app/src/main/java/uk/me/theflat/hotspot/DeviceIdentity.java tests/DeviceIdentityTest.java
+java -cp build/identity-model DeviceIdentityTest
+# Reflective DHCP adapter fixture exercises callback parsing without privileged Android access.
+javac -classpath "$android" -d build/discovery tests/discovery-fixtures/android/net/TetheringManager.java app/src/main/java/uk/me/theflat/hotspot/DeviceIdentity.java app/src/main/java/uk/me/theflat/hotspot/TetheredDeviceDiscovery.java app/src/main/java/uk/me/theflat/hotspot/DeviceIdentityJson.java tests/TetheredDeviceDiscoveryTest.java
+java -cp "build/discovery:$android" uk.me.theflat.hotspot.TetheredDeviceDiscoveryTest
+# Isolated profile adapter fixture: preserve security/rules/bands and reject stale credential edits.
+javac -classpath "$android" -d build/profile tests/profile-fixtures/android/net/wifi/SoftApConfiguration.java app/src/main/java/uk/me/theflat/hotspot/HotspotProfilePolicy.java app/src/main/java/uk/me/theflat/hotspot/HotspotProfileController.java tests/HotspotProfileTest.java
+java -cp "build/profile:$android" uk.me.theflat.hotspot.HotspotProfileTest
