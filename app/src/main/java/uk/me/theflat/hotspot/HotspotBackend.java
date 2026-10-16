@@ -426,6 +426,7 @@ public final class HotspotBackend extends Binder {
       observedOff = true;
     } else if (state == 13 && sessionStarted == 0) {
       sessionStarted = SystemClock.elapsedRealtime();
+      if (!managed) reason = "";
       startObserved = observedOff;
       if (managed) deadline = SessionRules.deadline(sessionStarted, timeLimitMs);
     }

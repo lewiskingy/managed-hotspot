@@ -9,7 +9,8 @@ import org.json.*;
 public final class SessionService extends Service {
   private final Handler handler = new Handler();
   private boolean alive = true, lastEnabled = false, wasConnected = false, inFlight = false;
-  private String previousError = "", previousReason = "";
+  private boolean foregroundStarted = false;
+  private String previousError = "", monitorKey = "";
   private final BroadcastReceiver changed =
       new BroadcastReceiver() {
         public void onReceive(Context c, Intent i) {
@@ -41,13 +42,16 @@ public final class SessionService extends Service {
       stopSelf();
       return START_NOT_STICKY;
     }
-    startForeground(
-        1,
-        notification(
-            this,
-            "Hotspot Keeper is watching",
-            "Waiting for hotspot · tap to set session rules",
-            false));
+    if (!foregroundStarted) {
+      foregroundStarted = true;
+      startForeground(
+          1,
+          notification(
+              this,
+              "Hotspot Keeper is watching",
+              "Waiting for hotspot · tap to set session rules",
+              false));
+    }
     handler.removeCallbacks(poll);
     handler.post(poll);
     return START_STICKY;
@@ -66,12 +70,15 @@ public final class SessionService extends Service {
             "Choose permitted devices, timer and data allowance. No Keeper rules are active yet.",
             2);
       if (!enabled) getSystemService(NotificationManager.class).cancel(2);
+      boolean justStopped = lastEnabled && !enabled;
       lastEnabled = enabled;
       wasConnected = true;
       String reason = o.optString("reason"), error = o.optString("error");
-      if (!reason.isEmpty() && !reason.equals(previousReason))
-        alert(this, "Hotspot stop requested", reason + ". Tap to verify hotspot state.", 4);
-      previousReason = reason;
+      if (justStopped
+          && (reason.equals("Timer reached")
+              || reason.equals("Data allowance reached")
+              || reason.equals("Data meter unavailable—stopping protected session")))
+        alert(this, "Keeper stopped hotspot", reason + ".", 4);
       if (!error.isEmpty() && !error.equals(previousError))
         alert(this, "Hotspot needs attention", error, 5);
       previousError = error;
@@ -80,7 +87,7 @@ public final class SessionService extends Service {
           cap = o.optLong("capBytes");
       String detail =
           !enabled
-              ? "Hotspot off"
+              ? "Watching for hotspot · tap to set session rules"
               : managed
                   ? "Rules active · "
                       + (deadline == 0
@@ -94,12 +101,10 @@ public final class SessionService extends Service {
                           ? "usage unavailable"
                           : used / 1048576 + " MB" + (cap > 0 ? " / " + cap / 1048576 + " MB" : ""))
                   : "Hotspot on · session rules pending";
-      getSystemService(NotificationManager.class)
-          .notify(1, notification(this, "Hotspot Keeper", detail, false));
+      updateMonitor("Hotspot Keeper", detail);
     } else {
       String e = o.optString("error", ControllerClient.get(this).availability());
-      getSystemService(NotificationManager.class)
-          .notify(1, notification(this, "Hotspot Keeper · control unavailable", e, false));
+      updateMonitor("Hotspot Keeper · control unavailable", e);
       if (wasConnected) {
         alert(
             this,
@@ -111,6 +116,13 @@ public final class SessionService extends Service {
       }
     }
     handler.postDelayed(poll, 3000);
+  }
+
+  private void updateMonitor(String title, String detail) {
+    String key = title + "\n" + detail;
+    if (key.equals(monitorKey)) return;
+    monitorKey = key;
+    getSystemService(NotificationManager.class).notify(1, notification(this, title, detail, false));
   }
 
   static void channels(Context c) {
@@ -151,6 +163,7 @@ public final class SessionService extends Service {
         .setContentText(text)
         .setStyle(new Notification.BigTextStyle().bigText(text))
         .setContentIntent(edit)
+        .setOnlyAlertOnce(!alert)
         .setOngoing(!alert)
         .setAutoCancel(alert)
         .addAction(new Notification.Action.Builder(null, "Set rules", edit).build())

@@ -91,3 +91,5 @@ The approved stopwatch / Wi-Fi / padlock concept is retained at `docs/branding/h
 ### Total session timer (0.2.4)
 
 The linear 0–120 minute slider snaps to 0, 5, 10, 20, 30, 45, 60, 90 and 120. Zero removes the time limit while normal idle shutdown and any data cap still apply. Limits run from the observed hotspot start, not the latest Apply. Elapsed time and the proposed end time appear beside the slider; an already elapsed limit warns that applying will stop immediately. If Keeper attaches to an already-running hotspot, the baseline is labelled “tracked since”. Data usage keeps its existing baseline.
+
+Watcher notifications update only when their displayed state changes, so dismissing an idle watcher notification does not cause it to reappear every poll. A separate cutoff alert is posted once on an observed on-to-off transition caused by the timer, data cap or unavailable data meter. Manual and normal idle shutdown do not generate cutoff alerts. The quiet foreground watcher remains necessary for automatic detection.
