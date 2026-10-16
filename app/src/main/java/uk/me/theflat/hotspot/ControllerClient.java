@@ -72,11 +72,19 @@ public final class ControllerClient {
     }
   }
 
-  void authorize() {
+  String authorize() {
     if (!Shizuku.pingBinder()) throw new IllegalStateException("Open Shizuku and start it first");
-    if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED)
+    if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+      if (Shizuku.shouldShowRequestPermissionRationale()) {
+        return "Shizuku access was denied. Review Keeper's authorisation in Shizuku.";
+      }
       Shizuku.requestPermission(10);
-    else connect();
+      return "Approve Hotspot Keeper in the Shizuku permission prompt";
+    }
+    connect();
+    return remote == null
+        ? "Shizuku access already granted; connecting…"
+        : "Shizuku access already granted and controller connected";
   }
 
   synchronized void connect() {
@@ -91,7 +99,7 @@ public final class ControllerClient {
               .daemon(true)
               .processNameSuffix("controller")
               .tag("keeper-controller")
-              .version(2)
+              .version(3)
               .debuggable(false),
           connection);
     } catch (RuntimeException e) {

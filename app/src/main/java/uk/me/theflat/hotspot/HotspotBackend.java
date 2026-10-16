@@ -50,7 +50,7 @@ public final class HotspotBackend extends Binder {
       Object thread = at.getMethod("currentActivityThread").invoke(null);
       if (thread == null) thread = at.getMethod("systemMain").invoke(null);
       Context system = (Context) at.getMethod("getSystemContext").invoke(thread);
-      shell = system.createPackageContext("com.android.shell", Context.CONTEXT_IGNORE_SECURITY);
+      shell = ShellIdentity.create(system, thread);
       appUid = shell.getPackageManager().getApplicationInfo("uk.me.theflat.hotspot", 0).uid;
       wifi = shell.getSystemService(WifiManager.class);
       tether = shell.getSystemService(TetheringManager.class);
@@ -480,6 +480,9 @@ public final class HotspotBackend extends Binder {
     o.put("ready", true)
         .put("android", Build.VERSION.RELEASE)
         .put("uid", android.os.Process.myUid())
+        .put("callerPackage", shell.getOpPackageName())
+        .put("attributionPackage", shell.getAttributionSource().getPackageName())
+        .put("attributionUid", shell.getAttributionSource().getUid())
         .put("state", s)
         .put("enabled", s == 13)
         .put("managed", managed)

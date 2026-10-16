@@ -49,14 +49,13 @@ public final class MainActivity extends Activity {
           return insets;
         });
     label("Hotspot Keeper", 28);
-    label("Shizuku edition · 0.2", 14);
+    label("Shizuku edition · 0.2.1", 14);
     status = label("Connecting…", 17);
     button(
         "Connect / authorise Shizuku",
         v -> {
           try {
-            ControllerClient.get(this).authorize();
-            toast("Approve Hotspot Keeper in the Shizuku permission prompt");
+            toast(ControllerClient.get(this).authorize());
           } catch (RuntimeException e) {
             toast(e.getMessage());
             Intent launch =
@@ -240,7 +239,9 @@ public final class MainActivity extends Activity {
                 ? "Hotspot starting"
                 : "Hotspot off";
     status.setText(
-        state
+        ControllerClient.get(this).availability()
+            + "\n"
+            + state
             + " · "
             + latest.optString("ssid")
             + "\n"
