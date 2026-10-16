@@ -11,9 +11,26 @@ import org.json.*;
 
 /** Local SAF transfer. Imported drafts never alter a running hotspot or grant privileges. */
 public final class SettingsBackupActivity extends Activity {
+  private boolean waiting;
+  private JSONObject pending;
+
   public void onCreate(Bundle saved) {
     super.onCreate(saved);
-    if (saved != null) return;
+    if (saved != null) {
+      waiting = saved.getBoolean("waiting");
+      String restore = saved.getString("pending");
+      if (restore != null) {
+        try {
+          pending = SettingsBackupCodec.validate(new JSONObject(restore));
+          confirm(pending);
+          return;
+        } catch (Exception e) {
+          finish();
+          return;
+        }
+      }
+      if (waiting) return;
+    }
     new AlertDialog.Builder(this)
         .setTitle("Settings backup")
         .setMessage(
@@ -23,7 +40,7 @@ public final class SettingsBackupActivity extends Activity {
         .setPositiveButton(
             "Export",
             (d, w) ->
-                startActivityForResult(
+                pick(
                     new Intent(Intent.ACTION_CREATE_DOCUMENT)
                         .setType("application/json")
                         .addCategory(Intent.CATEGORY_OPENABLE)
@@ -32,7 +49,7 @@ public final class SettingsBackupActivity extends Activity {
         .setNeutralButton(
             "Import",
             (d, w) ->
-                startActivityForResult(
+                pick(
                     new Intent(Intent.ACTION_OPEN_DOCUMENT)
                         .setType("application/json")
                         .addCategory(Intent.CATEGORY_OPENABLE),
@@ -44,6 +61,7 @@ public final class SettingsBackupActivity extends Activity {
 
   protected void onActivityResult(int request, int result, Intent data) {
     super.onActivityResult(request, result, data);
+    waiting = false;
     if (result != RESULT_OK || data == null || data.getData() == null) {
       finish();
       return;
@@ -76,44 +94,65 @@ public final class SettingsBackupActivity extends Activity {
         byte[] bytes;
         try (InputStream in = getContentResolver().openInputStream(data.getData())) {
           if (in == null) throw new IOException();
-          bytes = in.readNBytes(262145);
+          bytes = BoundedInput.read(in, 262144);
         }
         if (bytes.length > 262144) throw new IOException();
         JSONObject clean =
             SettingsBackupCodec.validate(new JSONObject(new String(bytes, StandardCharsets.UTF_8)));
-        new AlertDialog.Builder(this)
-            .setTitle("Replace saved settings?")
-            .setMessage(
-                "This replaces saved device names and next-session rules. The current hotspot is"
-                    + " unchanged. Check rules before the next start.")
-            .setPositiveButton(
-                "Replace",
-                (d, w) -> {
-                  try {
-                    JSONObject rules = clean.getJSONObject("rules");
-                    boolean ok =
-                        MainActivity.prefs(this)
-                            .edit()
-                            .putString("known", clean.getJSONObject("known").toString())
-                            .putString("lastSuccessfulRules", rules.toString())
-                            .putString("minutes", Long.toString(rules.getLong("minutes")))
-                            .putBoolean("restricted", rules.getBoolean("restricted"))
-                            .putString("selected", rules.getJSONArray("allowed").toString())
-                            .commit();
-                    toast(ok ? "Settings imported" : "Unable to save settings");
-                  } catch (JSONException e) {
-                    toast("Invalid backup");
-                  }
-                  finish();
-                })
-            .setNegativeButton("Cancel", (d, w) -> finish())
-            .setOnCancelListener(d -> finish())
-            .show();
+        pending = clean;
+        confirm(clean);
       }
     } catch (Exception e) {
       toast("Unable to transfer settings. Use a valid Keeper backup and an accessible file.");
       finish();
     }
+  }
+
+  private void pick(Intent intent, int request) {
+    waiting = true;
+    try {
+      startActivityForResult(intent, request);
+    } catch (RuntimeException e) {
+      toast("No document picker available");
+      finish();
+    }
+  }
+
+  protected void onSaveInstanceState(Bundle out) {
+    super.onSaveInstanceState(out);
+    out.putBoolean("waiting", waiting);
+    if (pending != null) out.putString("pending", pending.toString());
+  }
+
+  private void confirm(JSONObject clean) {
+    new AlertDialog.Builder(this)
+        .setTitle("Replace saved settings?")
+        .setMessage(
+            "This replaces saved device names and next-session rules. The current hotspot is"
+                + " unchanged. Check rules before the next start.")
+        .setPositiveButton(
+            "Replace",
+            (d, w) -> {
+              try {
+                JSONObject rules = clean.getJSONObject("rules");
+                boolean ok =
+                    MainActivity.prefs(this)
+                        .edit()
+                        .putString("known", clean.getJSONObject("known").toString())
+                        .putString("lastSuccessfulRules", rules.toString())
+                        .putString("minutes", Long.toString(rules.getLong("minutes")))
+                        .putBoolean("restricted", rules.getBoolean("restricted"))
+                        .putString("selected", rules.getJSONArray("allowed").toString())
+                        .commit();
+                toast(ok ? "Settings imported" : "Unable to save settings");
+              } catch (JSONException e) {
+                toast("Invalid backup");
+              }
+              finish();
+            })
+        .setNegativeButton("Cancel", (d, w) -> finish())
+        .setOnCancelListener(d -> finish())
+        .show();
   }
 
   private void toast(String s) {

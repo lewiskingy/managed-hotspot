@@ -7,3 +7,9 @@ app/libs/
 dist/
 *.keystore
 *.jks
+# Private upload/release credentials
+.env
+.env.*
+keystore.properties
+signing.properties
+service-account*.json

@@ -11,7 +11,7 @@ final class AppInformation {
     try {
       String policy;
       try (java.io.InputStream in = a.getAssets().open("privacy.txt")) {
-        policy = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        policy = new String(BoundedInput.read(in, 65536), StandardCharsets.UTF_8);
       }
       new AlertDialog.Builder(a)
           .setTitle("Privacy & source")

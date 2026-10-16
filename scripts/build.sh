@@ -36,3 +36,5 @@ javac -classpath "$android" -d build/profile tests/profile-fixtures/android/net/
 java -cp "build/profile:$android" uk.me.theflat.hotspot.HotspotProfileTest
 # Validate secret-free backup schema using a JVM-only JSON library.
 python3 scripts/test-backup.py
+javac -d build/backup app/src/main/java/uk/me/theflat/hotspot/BoundedInput.java tests/BoundedInputTest.java
+java -cp build/backup BoundedInputTest
